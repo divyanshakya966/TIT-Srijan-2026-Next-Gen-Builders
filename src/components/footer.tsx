@@ -12,8 +12,10 @@ export function Footer() {
             <div className="grid h-8 w-8 place-items-center rounded-xl bg-brand-gradient text-primary-foreground">
               <ShoppingBag className="h-4 w-4" />
             </div>
-            <span className="text-base font-semibold">Smart<span className="text-brand-gradient">Campus</span>
-            <span className="ml-1 text-xs font-medium text-muted-foreground">Marketplace</span></span>
+            <span className="text-xl font-bold tracking-tight">
+              Smart<span className="text-brand-gradient">Campus</span>
+              <span className="ml-1.5 text-foreground/90">Marketplace</span>
+            </span>
           </Link>
           <p className="mt-4 max-w-sm text-sm text-muted-foreground">
             The trusted marketplace built exclusively for verified college students.
