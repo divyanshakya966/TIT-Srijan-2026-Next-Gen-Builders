@@ -60,12 +60,10 @@ export function AIChatbot() {
               content:
                 "You are Campus Assistant for a student marketplace. Be concise, practical, and guide students safely.",
             },
-            ...messages
-              .slice(-6)
-              .map((message) => ({
-                role: message.sender === "user" ? "user" : "assistant",
-                content: message.text,
-              })),
+            ...messages.slice(-6).map((message) => ({
+              role: message.sender === "user" ? "user" : "assistant",
+              content: message.text,
+            })),
             { role: "user", content: trimmed },
           ],
         }),
@@ -107,7 +105,7 @@ export function AIChatbot() {
           "fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-elegant",
           "flex items-center justify-center gap-2 transition-all duration-300 z-40",
           "bg-brand-gradient text-primary-foreground hover:shadow-lg hover:scale-105",
-          "border border-primary/20 backdrop-blur-sm"
+          "border border-primary/20 backdrop-blur-sm",
         )}
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -132,7 +130,7 @@ export function AIChatbot() {
               "max-h-[600px] flex flex-col",
               "md:bottom-28 md:right-8",
               "sm:bottom-24 sm:right-6 sm:w-80",
-              "max-sm:bottom-20 max-sm:right-4 max-sm:w-[calc(100%-2rem)]"
+              "max-sm:bottom-20 max-sm:right-4 max-sm:w-[calc(100%-2rem)]",
             )}
           >
             {/* Header */}
@@ -173,7 +171,7 @@ export function AIChatbot() {
                       animate={{ opacity: 1, y: 0 }}
                       className={cn(
                         "flex gap-2",
-                        msg.sender === "user" ? "justify-end" : "justify-start"
+                        msg.sender === "user" ? "justify-end" : "justify-start",
                       )}
                     >
                       <div
@@ -181,7 +179,7 @@ export function AIChatbot() {
                           "max-w-xs px-3 py-2 rounded-2xl text-sm",
                           msg.sender === "user"
                             ? "bg-brand-gradient text-primary-foreground rounded-br-none"
-                            : "bg-secondary/60 text-foreground rounded-bl-none"
+                            : "bg-secondary/60 text-foreground rounded-bl-none",
                         )}
                       >
                         {msg.text}
@@ -235,7 +233,7 @@ export function AIChatbot() {
                       className={cn(
                         "text-xs px-3 py-2 rounded-lg text-left transition-all",
                         "bg-secondary/50 hover:bg-secondary text-foreground",
-                        "border border-border/40 hover:border-border/80"
+                        "border border-border/40 hover:border-border/80",
                       )}
                     >
                       {prompt}
@@ -258,7 +256,7 @@ export function AIChatbot() {
                   className={cn(
                     "flex-1 bg-secondary/50 text-sm rounded-lg px-3 py-2 outline-none",
                     "placeholder:text-muted-foreground/60 transition-colors",
-                    "focus:bg-secondary border border-border/40 focus:border-border/80"
+                    "focus:bg-secondary border border-border/40 focus:border-border/80",
                   )}
                 />
                 <motion.button
@@ -269,7 +267,7 @@ export function AIChatbot() {
                   className={cn(
                     "h-9 w-9 rounded-lg flex items-center justify-center transition-all",
                     "bg-brand-gradient text-primary-foreground",
-                    "hover:shadow-soft disabled:opacity-60"
+                    "hover:shadow-soft disabled:opacity-60",
                   )}
                 >
                   {isLoading ? (

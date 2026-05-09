@@ -1,6 +1,12 @@
 export type Category =
-  | "Books" | "Gadgets" | "Notes" | "Electronics"
-  | "Cycles" | "Hostel Essentials" | "Lab Equipment" | "Furniture";
+  | "Books"
+  | "Gadgets"
+  | "Notes"
+  | "Electronics"
+  | "Cycles"
+  | "Hostel Essentials"
+  | "Lab Equipment"
+  | "Furniture";
 
 export type Product = {
   id: string;
@@ -25,6 +31,8 @@ export type Product = {
   forRent?: boolean;
   rentPerDay?: number;
   postedAgo: string;
+  /** Present on Firestore-backed listings — opens peer profile & DM */
+  sellerId?: string;
 };
 
 const img = (q: string, seed: number) =>
@@ -34,10 +42,19 @@ export const products: Product[] = [
   {
     id: "p1",
     title: "Engineering Mathematics — B.S. Grewal (44th Ed.)",
-    price: 320, originalPrice: 720, category: "Books", condition: "Good",
-    image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=900&q=70",
-    seller: { name: "Rhea Kulkarni", college: "MANIT Bhopal", verified: true, rating: 4.9,
-      avatar: "https://i.pravatar.cc/120?img=12" },
+    price: 320,
+    originalPrice: 720,
+    category: "Books",
+    condition: "Good",
+    image:
+      "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=900&q=70",
+    seller: {
+      name: "Rhea Kulkarni",
+      college: "MANIT Bhopal",
+      verified: true,
+      rating: 4.9,
+      avatar: "https://i.pravatar.cc/120?img=12",
+    },
     description: "Clean copy with no pen marks and only a few highlighter lines in chapter 3.",
     shortDescription: "First-year staple in excellent reading condition.",
     usedFor: "8 months",
@@ -53,11 +70,21 @@ export const products: Product[] = [
   {
     id: "p2",
     title: "Apple MacBook Air M1 — 8GB / 256GB",
-    price: 54999, originalPrice: 89900, category: "Electronics", condition: "Like New",
-    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=900&q=70",
-    seller: { name: "Yash Tiwari", college: "LNCT Bhopal", verified: true, rating: 4.8,
-      avatar: "https://i.pravatar.cc/120?img=47" },
-    description: "Single-owner device with strong battery health, original charger, and purchase box.",
+    price: 54999,
+    originalPrice: 89900,
+    category: "Electronics",
+    condition: "Like New",
+    image:
+      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=900&q=70",
+    seller: {
+      name: "Yash Tiwari",
+      college: "LNCT Bhopal",
+      verified: true,
+      rating: 4.8,
+      avatar: "https://i.pravatar.cc/120?img=47",
+    },
+    description:
+      "Single-owner device with strong battery health, original charger, and purchase box.",
     shortDescription: "M1 performance laptop with verified battery condition.",
     usedFor: "14 months",
     itemAge: "2024 model",
@@ -72,11 +99,21 @@ export const products: Product[] = [
   {
     id: "p3",
     title: "Casio FX-991ES Plus Scientific Calculator",
-    price: 650, originalPrice: 1100, category: "Gadgets", condition: "Like New",
-    image: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=900&q=70",
-    seller: { name: "Mihir Jain", college: "RGPV University", verified: true, rating: 5.0,
-      avatar: "https://i.pravatar.cc/120?img=33" },
-    description: "Used for one semester and fully tested before listing. Protective cover included.",
+    price: 650,
+    originalPrice: 1100,
+    category: "Gadgets",
+    condition: "Like New",
+    image:
+      "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=900&q=70",
+    seller: {
+      name: "Mihir Jain",
+      college: "RGPV University",
+      verified: true,
+      rating: 5.0,
+      avatar: "https://i.pravatar.cc/120?img=33",
+    },
+    description:
+      "Used for one semester and fully tested before listing. Protective cover included.",
     shortDescription: "Exam-ready calculator in near-new condition.",
     usedFor: "1 semester",
     itemAge: "Bought in 2025",
@@ -91,12 +128,23 @@ export const products: Product[] = [
   {
     id: "p4",
     title: "Hercules Roadeo Hybrid Cycle — 21 Speed",
-    price: 4200, originalPrice: 9500, category: "Cycles", condition: "Good",
-    image: "https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?auto=format&fit=crop&w=900&q=70",
-    seller: { name: "Devansh Kapoor", college: "SIRT Bhopal", verified: true, rating: 4.6,
-      avatar: "https://i.pravatar.cc/120?img=14" },
-    description: "Recently serviced with new brake pads and fresh tyres, ideal for daily campus rides.",
-    forRent: true, rentPerDay: 80,
+    price: 4200,
+    originalPrice: 9500,
+    category: "Cycles",
+    condition: "Good",
+    image:
+      "https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?auto=format&fit=crop&w=900&q=70",
+    seller: {
+      name: "Devansh Kapoor",
+      college: "SIRT Bhopal",
+      verified: true,
+      rating: 4.6,
+      avatar: "https://i.pravatar.cc/120?img=14",
+    },
+    description:
+      "Recently serviced with new brake pads and fresh tyres, ideal for daily campus rides.",
+    forRent: true,
+    rentPerDay: 80,
     shortDescription: "Smooth 21-speed cycle for commute or short rentals.",
     usedFor: "2 years",
     itemAge: "Purchased in 2024",
@@ -111,10 +159,18 @@ export const products: Product[] = [
   {
     id: "p5",
     title: "Hostel Study Lamp — Rechargeable LED",
-    price: 380, category: "Hostel Essentials", condition: "New",
-    image: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=900&q=70",
-    seller: { name: "Sana Thomas", college: "Technocrats Institute", verified: true, rating: 4.7,
-      avatar: "https://i.pravatar.cc/120?img=20" },
+    price: 380,
+    category: "Hostel Essentials",
+    condition: "New",
+    image:
+      "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=900&q=70",
+    seller: {
+      name: "Sana Thomas",
+      college: "Technocrats Institute",
+      verified: true,
+      rating: 4.7,
+      avatar: "https://i.pravatar.cc/120?img=20",
+    },
     description: "Brand new sealed unit with three brightness levels and rechargeable battery.",
     shortDescription: "Unused LED lamp designed for night study sessions.",
     usedFor: "Unused",
@@ -130,11 +186,20 @@ export const products: Product[] = [
   {
     id: "p6",
     title: "Data Structures + Algorithms Notes (Sem 3)",
-    price: 120, category: "Notes", condition: "Like New",
-    image: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=900&q=70",
-    seller: { name: "Ananya Singh", college: "Bhopal School of Engineering", verified: true, rating: 4.9,
-      avatar: "https://i.pravatar.cc/120?img=45" },
-    description: "Complete semester notes with diagrams, complexity tables, and concise revision pages.",
+    price: 120,
+    category: "Notes",
+    condition: "Like New",
+    image:
+      "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=900&q=70",
+    seller: {
+      name: "Ananya Singh",
+      college: "Bhopal School of Engineering",
+      verified: true,
+      rating: 4.9,
+      avatar: "https://i.pravatar.cc/120?img=45",
+    },
+    description:
+      "Complete semester notes with diagrams, complexity tables, and concise revision pages.",
     shortDescription: "Structured sem-3 notes with PYQ-oriented coverage.",
     usedFor: "1 semester",
     itemAge: "Made in 2025",
@@ -149,10 +214,19 @@ export const products: Product[] = [
   {
     id: "p7",
     title: "Sony WH-CH520 Wireless Headphones",
-    price: 2800, originalPrice: 4499, category: "Gadgets", condition: "Like New",
-    image: "https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&w=900&q=70",
-    seller: { name: "Ishaan Verma", college: "Oriental Institute Bhopal", verified: true, rating: 4.8,
-      avatar: "https://i.pravatar.cc/120?img=15" },
+    price: 2800,
+    originalPrice: 4499,
+    category: "Gadgets",
+    condition: "Like New",
+    image:
+      "https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&w=900&q=70",
+    seller: {
+      name: "Ishaan Verma",
+      college: "Oriental Institute Bhopal",
+      verified: true,
+      rating: 4.8,
+      avatar: "https://i.pravatar.cc/120?img=15",
+    },
     description: "Lightly used for four months with long battery backup and clear mic quality.",
     shortDescription: "Wireless headphones for calls, classes, and commute.",
     usedFor: "4 months",
@@ -168,11 +242,20 @@ export const products: Product[] = [
   {
     id: "p8",
     title: "Foldable Study Table — Wood Finish",
-    price: 950, category: "Furniture", condition: "Good",
-    image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=900&q=70",
-    seller: { name: "Tanvi Patel", college: "BUIT Bhopal", verified: true, rating: 4.6,
-      avatar: "https://i.pravatar.cc/120?img=22" },
-    description: "Sturdy foldable unit with stable legs and clean finish, suitable for compact hostel rooms.",
+    price: 950,
+    category: "Furniture",
+    condition: "Good",
+    image:
+      "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=900&q=70",
+    seller: {
+      name: "Tanvi Patel",
+      college: "BUIT Bhopal",
+      verified: true,
+      rating: 4.6,
+      avatar: "https://i.pravatar.cc/120?img=22",
+    },
+    description:
+      "Sturdy foldable unit with stable legs and clean finish, suitable for compact hostel rooms.",
     shortDescription: "Space-saving table with laptop + notebook working area.",
     usedFor: "1 year",
     itemAge: "Purchased in 2024",
@@ -187,10 +270,18 @@ export const products: Product[] = [
   {
     id: "p9",
     title: "Digital Multimeter — Lab Grade",
-    price: 720, category: "Lab Equipment", condition: "Like New",
-    image: "https://images.unsplash.com/photo-1581090700227-1e37b190418e?auto=format&fit=crop&w=900&q=70",
-    seller: { name: "Rohan Das", college: "JEC Jabalpur", verified: true, rating: 4.9,
-      avatar: "https://i.pravatar.cc/120?img=8" },
+    price: 720,
+    category: "Lab Equipment",
+    condition: "Like New",
+    image:
+      "https://images.unsplash.com/photo-1581090700227-1e37b190418e?auto=format&fit=crop&w=900&q=70",
+    seller: {
+      name: "Rohan Das",
+      college: "JEC Jabalpur",
+      verified: true,
+      rating: 4.9,
+      avatar: "https://i.pravatar.cc/120?img=8",
+    },
     description: "Calibrated unit used in one EE lab cycle; probes and battery are included.",
     shortDescription: "Reliable lab multimeter for practical sessions.",
     usedFor: "1 lab",
@@ -206,12 +297,23 @@ export const products: Product[] = [
   {
     id: "p10",
     title: "iPad 9th Gen 64GB Wi-Fi + Apple Pencil",
-    price: 19500, originalPrice: 33900, category: "Electronics", condition: "Good",
-    image: "https://images.unsplash.com/photo-1561154464-82e9adf32764?auto=format&fit=crop&w=900&q=70",
-    seller: { name: "Sneha Rao", college: "MANIT Bhopal", verified: true, rating: 4.7,
-      avatar: "https://i.pravatar.cc/120?img=49" },
-    description: "Great for digital notes and PDF markup. Includes Apple Pencil and protective case.",
-    forRent: true, rentPerDay: 250,
+    price: 19500,
+    originalPrice: 33900,
+    category: "Electronics",
+    condition: "Good",
+    image:
+      "https://images.unsplash.com/photo-1561154464-82e9adf32764?auto=format&fit=crop&w=900&q=70",
+    seller: {
+      name: "Sneha Rao",
+      college: "MANIT Bhopal",
+      verified: true,
+      rating: 4.7,
+      avatar: "https://i.pravatar.cc/120?img=49",
+    },
+    description:
+      "Great for digital notes and PDF markup. Includes Apple Pencil and protective case.",
+    forRent: true,
+    rentPerDay: 250,
     shortDescription: "iPad bundle ready for classes and exam prep.",
     usedFor: "10 months",
     itemAge: "Bought in 2024",
@@ -226,11 +328,21 @@ export const products: Product[] = [
   {
     id: "p11",
     title: "Resnick Halliday — Physics Vol. 1 & 2",
-    price: 540, originalPrice: 1300, category: "Books", condition: "Good",
-    image: "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=70",
-    seller: { name: "Aditya Joshi", college: "RGPV University", verified: true, rating: 4.8,
-      avatar: "https://i.pravatar.cc/120?img=11" },
-    description: "Complete two-volume set with strong binding and clean pages for first-year physics prep.",
+    price: 540,
+    originalPrice: 1300,
+    category: "Books",
+    condition: "Good",
+    image:
+      "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=70",
+    seller: {
+      name: "Aditya Joshi",
+      college: "RGPV University",
+      verified: true,
+      rating: 4.8,
+      avatar: "https://i.pravatar.cc/120?img=11",
+    },
+    description:
+      "Complete two-volume set with strong binding and clean pages for first-year physics prep.",
     shortDescription: "Classic physics set in good academic condition.",
     usedFor: "1 year",
     itemAge: "Bought in 2024",
@@ -245,11 +357,21 @@ export const products: Product[] = [
   {
     id: "p12",
     title: "Mini Refrigerator — 50L (Hostel Friendly)",
-    price: 3800, originalPrice: 6800, category: "Hostel Essentials", condition: "Good",
-    image: "https://images.unsplash.com/photo-1536353284924-9220c464e262?auto=format&fit=crop&w=900&q=70",
-    seller: { name: "Kabir Shah", college: "LNCT Bhopal", verified: true, rating: 4.6,
-      avatar: "https://i.pravatar.cc/120?img=7" },
-    description: "Low-noise 50L mini fridge with efficient cooling for drinks, fruit, and essentials.",
+    price: 3800,
+    originalPrice: 6800,
+    category: "Hostel Essentials",
+    condition: "Good",
+    image:
+      "https://images.unsplash.com/photo-1536353284924-9220c464e262?auto=format&fit=crop&w=900&q=70",
+    seller: {
+      name: "Kabir Shah",
+      college: "LNCT Bhopal",
+      verified: true,
+      rating: 4.6,
+      avatar: "https://i.pravatar.cc/120?img=7",
+    },
+    description:
+      "Low-noise 50L mini fridge with efficient cooling for drinks, fruit, and essentials.",
     shortDescription: "Energy-efficient mini refrigerator for hostel use.",
     usedFor: "6 months",
     itemAge: "Bought in 2025",
@@ -275,33 +397,81 @@ export const categories: { name: Category; count: number }[] = [
 ];
 
 export const testimonials = [
-  { name: "Pranav S.", college: "MANIT Bhopal",
-    quote: "I uploaded three first-year books during lunch and they were sold before evening. Verified profiles made the whole process feel safe.",
-    avatar: "https://i.pravatar.cc/120?img=5" },
-  { name: "Nikita J.", college: "LNCT Bhopal",
-    quote: "I found a semester cycle rental in 15 minutes and coordinated pickup inside chat. No random bargaining, no confusion.",
-    avatar: "https://i.pravatar.cc/120?img=32" },
-  { name: "Aman G.", college: "RGPV University",
-    quote: "The AI assistant helped me price my calculator and draft buyer replies. My listing moved in under a day.",
-    avatar: "https://i.pravatar.cc/120?img=17" },
+  {
+    name: "Pranav S.",
+    college: "MANIT Bhopal",
+    quote:
+      "I uploaded three first-year books during lunch and they were sold before evening. Verified profiles made the whole process feel safe.",
+    avatar: "https://i.pravatar.cc/120?img=5",
+  },
+  {
+    name: "Nikita J.",
+    college: "LNCT Bhopal",
+    quote:
+      "I found a semester cycle rental in 15 minutes and coordinated pickup inside chat. No random bargaining, no confusion.",
+    avatar: "https://i.pravatar.cc/120?img=32",
+  },
+  {
+    name: "Aman G.",
+    college: "RGPV University",
+    quote:
+      "The AI assistant helped me price my calculator and draft buyer replies. My listing moved in under a day.",
+    avatar: "https://i.pravatar.cc/120?img=17",
+  },
 ];
 
 export const conversations = [
-  { id: "ai-chat", name: "Campus Assistant", lastMsg: "I can help with pricing, negotiation drafts, and safe meetup messages.",
-    time: "now", online: true, unread: 0, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=bot",
-    product: "AI Assistant", isBot: true },
-  { id: "c1", name: "Rhea Kulkarni", lastMsg: "Confirmed. Central Library entrance works for 5:30 PM.",
-    time: "2m", online: true, unread: 1, avatar: "https://i.pravatar.cc/120?img=12",
-    product: "B.S. Grewal Maths" },
-  { id: "c2", name: "Yash Tiwari", lastMsg: "Can you share battery health screenshot once?",
-    time: "18m", online: true, unread: 0, avatar: "https://i.pravatar.cc/120?img=47",
-    product: "MacBook Air M1" },
-  { id: "c3", name: "Mihir Jain", lastMsg: "I can pick up after EEE lab tomorrow.",
-    time: "3h", online: false, unread: 0, avatar: "https://i.pravatar.cc/120?img=33",
-    product: "Casio FX-991ES" },
-  { id: "c4", name: "Sana Thomas", lastMsg: "Review submitted, thanks for quick handover!",
-    time: "1d", online: false, unread: 0, avatar: "https://i.pravatar.cc/120?img=20",
-    product: "Study Lamp" },
+  {
+    id: "ai-chat",
+    name: "Campus Assistant",
+    lastMsg: "I can help with pricing, negotiation drafts, and safe meetup messages.",
+    time: "now",
+    online: true,
+    unread: 0,
+    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=bot",
+    product: "AI Assistant",
+    isBot: true,
+  },
+  {
+    id: "c1",
+    name: "Rhea Kulkarni",
+    lastMsg: "Confirmed. Central Library entrance works for 5:30 PM.",
+    time: "2m",
+    online: true,
+    unread: 1,
+    avatar: "https://i.pravatar.cc/120?img=12",
+    product: "B.S. Grewal Maths",
+  },
+  {
+    id: "c2",
+    name: "Yash Tiwari",
+    lastMsg: "Can you share battery health screenshot once?",
+    time: "18m",
+    online: true,
+    unread: 0,
+    avatar: "https://i.pravatar.cc/120?img=47",
+    product: "MacBook Air M1",
+  },
+  {
+    id: "c3",
+    name: "Mihir Jain",
+    lastMsg: "I can pick up after EEE lab tomorrow.",
+    time: "3h",
+    online: false,
+    unread: 0,
+    avatar: "https://i.pravatar.cc/120?img=33",
+    product: "Casio FX-991ES",
+  },
+  {
+    id: "c4",
+    name: "Sana Thomas",
+    lastMsg: "Review submitted, thanks for quick handover!",
+    time: "1d",
+    online: false,
+    unread: 0,
+    avatar: "https://i.pravatar.cc/120?img=20",
+    product: "Study Lamp",
+  },
 ];
 
 export const sampleMessages = [
@@ -335,7 +505,8 @@ export const itemRequests: ItemRequest[] = [
     budgetMin: 350,
     budgetMax: 800,
     condition: "Good or better",
-    description: "Need a complete drafter set with T-square, set squares, compass and mini drafter for mechanical graphics lab next week.",
+    description:
+      "Need a complete drafter set with T-square, set squares, compass and mini drafter for mechanical graphics lab next week.",
     urgency: "High",
     campus: "LNCT Bhopal",
     department: "Mechanical",
@@ -349,7 +520,8 @@ export const itemRequests: ItemRequest[] = [
     budgetMin: 1800,
     budgetMax: 4200,
     condition: "Any working condition",
-    description: "Looking for a portable cooler or premium table fan for summer. Low-noise preferred for shared hostel room.",
+    description:
+      "Looking for a portable cooler or premium table fan for summer. Low-noise preferred for shared hostel room.",
     urgency: "Urgent",
     campus: "Technocrats Institute",
     department: "CSE",
@@ -363,7 +535,8 @@ export const itemRequests: ItemRequest[] = [
     budgetMin: 4500,
     budgetMax: 8500,
     condition: "Like New",
-    description: "Need a coding monitor with HDMI input for project work. 1080p or better and no dead pixels.",
+    description:
+      "Need a coding monitor with HDMI input for project work. 1080p or better and no dead pixels.",
     urgency: "Medium",
     campus: "MANIT Bhopal",
     department: "CSE",
@@ -377,7 +550,8 @@ export const itemRequests: ItemRequest[] = [
     budgetMin: 120,
     budgetMax: 320,
     condition: "Any",
-    description: "Need complete revision notes for Data Structures and OS with diagrams and previous year questions.",
+    description:
+      "Need complete revision notes for Data Structures and OS with diagrams and previous year questions.",
     urgency: "High",
     campus: "SIRT Bhopal",
     department: "CSE",
@@ -391,7 +565,8 @@ export const itemRequests: ItemRequest[] = [
     budgetMin: 500,
     budgetMax: 950,
     condition: "Good",
-    description: "Need a reliable scientific calculator before internals this week. Original Casio preferred.",
+    description:
+      "Need a reliable scientific calculator before internals this week. Original Casio preferred.",
     urgency: "Urgent",
     campus: "RGPV Bhopal",
     department: "ECE",
@@ -405,7 +580,8 @@ export const itemRequests: ItemRequest[] = [
     budgetMin: 700,
     budgetMax: 1600,
     condition: "Good or better",
-    description: "Need a compact foldable table for hostel room setup. Prefer sturdy legs and space for laptop + notebook.",
+    description:
+      "Need a compact foldable table for hostel room setup. Prefer sturdy legs and space for laptop + notebook.",
     urgency: "Low",
     campus: "Oriental Group of Institutes",
     department: "MBA",

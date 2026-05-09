@@ -7,7 +7,9 @@ export function SiteLayout({ withFooter = true }: { withFooter?: boolean }) {
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
-      <main className="flex-1"><Outlet /></main>
+      <main className="flex-1">
+        <Outlet />
+      </main>
       {withFooter && <Footer />}
       <AIChatbot />
     </div>

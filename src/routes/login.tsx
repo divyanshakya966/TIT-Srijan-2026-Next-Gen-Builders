@@ -224,7 +224,9 @@ export function AuthAside() {
               />
             ))}
           </div>
-          <span className="text-xs opacity-80">Joined by 4,200+ verified students across pilot campuses</span>
+          <span className="text-xs opacity-80">
+            Joined by 4,200+ verified students across pilot campuses
+          </span>
         </div>
       </div>
       <div className="relative text-xs opacity-60">© SmartCampus · Built for students</div>

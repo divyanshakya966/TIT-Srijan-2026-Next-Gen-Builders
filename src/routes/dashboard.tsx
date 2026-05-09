@@ -1,11 +1,22 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
-  TrendingUp, Eye, MessageCircle, Heart, Package, ShoppingBag,
-  Plus, BadgeCheck, RotateCcw, CalendarDays,
+  TrendingUp,
+  MessageCircle,
+  Heart,
+  Package,
+  ShoppingBag,
+  Plus,
+  BadgeCheck,
+  RotateCcw,
+  CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { products, conversations } from "@/lib/mock-data";
+import { conversations, type Category, type Product } from "@/lib/mock-data";
+import { createListing, fetchListingsBySeller } from "@/lib/firestore-listings";
+import { PRODUCT_CATEGORIES, useCatalog } from "@/lib/catalog";
+import { useCampus } from "@/lib/campus";
+import { useWishlist } from "@/lib/wishlist";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import {
@@ -16,30 +27,37 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
-} from "recharts";
 import { useEffect, useMemo, useState } from "react";
 import { buildFallbackUserProfile, useCurrentUserProfile } from "@/lib/user-profile";
 import { useAuth } from "@/lib/auth";
 import AccountOverview from "@/components/account-overview";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard")({ component: DashboardPage });
-
-const chartData = [
-  { d: "Mon", views: 120, msgs: 4 }, { d: "Tue", views: 180, msgs: 7 },
-  { d: "Wed", views: 150, msgs: 6 }, { d: "Thu", views: 220, msgs: 11 },
-  { d: "Fri", views: 280, msgs: 14 }, { d: "Sat", views: 320, msgs: 18 },
-  { d: "Sun", views: 260, msgs: 12 },
-];
-
-
 
 function DashboardPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading, signOut } = useAuth();
   const profileQuery = useCurrentUserProfile();
-  const rentals = useMemo(() => products.filter((p) => p.forRent).slice(0, 4), []);
+  const { products } = useCatalog();
+  const { campus } = useCampus();
+  const wishlist = useWishlist();
+
+  const [myListings, setMyListings] = useState<Product[]>([]);
+  const [listingOpen, setListingOpen] = useState(false);
+  const [listingSubmitting, setListingSubmitting] = useState(false);
+  const [listingForm, setListingForm] = useState({
+    title: "",
+    price: "",
+    category: "Books" as Category,
+    condition: "Good" as Product["condition"],
+    image: "",
+    description: "",
+    forRent: false,
+    rentPerDay: "",
+  });
+
+  const rentals = useMemo(() => products.filter((p) => p.forRent).slice(0, 4), [products]);
   const [returnOpen, setReturnOpen] = useState(false);
   const [selectedRentalId, setSelectedRentalId] = useState<string | null>(null);
   const [returnDate, setReturnDate] = useState<string>(() => {
@@ -48,7 +66,9 @@ function DashboardPage() {
     return d.toISOString().slice(0, 10);
   });
   const [returnNote, setReturnNote] = useState("");
-  const [rentalStatus, setRentalStatus] = useState<Record<string, "Active Rental" | "Return Requested" | "Returned Successfully">>(() => {
+  const [rentalStatus, setRentalStatus] = useState<
+    Record<string, "Active Rental" | "Return Requested" | "Returned Successfully">
+  >(() => {
     const init: Record<string, "Active Rental" | "Return Requested" | "Returned Successfully"> = {};
     rentals.forEach((r, idx) => {
       init[r.id] = idx === 0 ? "Active Rental" : idx === 1 ? "Return Requested" : "Active Rental";
@@ -56,6 +76,14 @@ function DashboardPage() {
     return init;
   });
   const profile = profileQuery.data ?? (user ? buildFallbackUserProfile(user) : null);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setMyListings([]);
+      return;
+    }
+    void fetchListingsBySeller(user.uid).then(setMyListings);
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -79,6 +107,72 @@ function DashboardPage() {
 
   const selectedRental = selectedRentalId ? products.find((p) => p.id === selectedRentalId) : null;
 
+  const peerConversations = useMemo(
+    () => conversations.filter((c) => !(c as { isBot?: boolean }).isBot),
+    [],
+  );
+
+  const submitNewListing = async () => {
+    if (!user?.uid) return;
+    const price = Number(listingForm.price);
+    if (
+      !listingForm.title.trim() ||
+      !Number.isFinite(price) ||
+      price <= 0 ||
+      !listingForm.image.trim()
+    ) {
+      toast.error("Missing listing details", {
+        description: "Add a title, positive price, and cover image URL.",
+      });
+      return;
+    }
+    setListingSubmitting(true);
+    try {
+      await createListing({
+        title: listingForm.title.trim(),
+        price,
+        category: listingForm.category,
+        condition: listingForm.condition,
+        image: listingForm.image.trim(),
+        description: listingForm.description.trim() || listingForm.title.trim(),
+        shortDescription: listingForm.description.trim().slice(0, 140) || undefined,
+        sellerId: user.uid,
+        sellerName: profile?.displayName ?? user.displayName ?? "Student",
+        sellerCollege: campus || "Campus",
+        sellerVerified: Boolean(profile?.emailVerified ?? user.emailVerified),
+        sellerRating: 5,
+        sellerAvatar: profile?.photoUrl ?? user.photoURL ?? undefined,
+        forRent: listingForm.forRent,
+        rentPerDay: listingForm.forRent
+          ? Math.max(1, Number(listingForm.rentPerDay) || 1)
+          : undefined,
+      });
+      void fetchListingsBySeller(user.uid).then(setMyListings);
+      setListingForm({
+        title: "",
+        price: "",
+        category: "Books",
+        condition: "Good",
+        image: "",
+        description: "",
+        forRent: false,
+        rentPerDay: "",
+      });
+      setListingOpen(false);
+      toast.success("Listing published", {
+        description: "Your item is live for everyone browsing the catalog.",
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("Could not publish listing", {
+        description:
+          e instanceof Error ? e.message : "Check Firestore rules and network, then try again.",
+      });
+    } finally {
+      setListingSubmitting(false);
+    }
+  };
+
   if (authLoading && !user) {
     return (
       <div className="flex min-h-screen flex-col">
@@ -87,7 +181,9 @@ function DashboardPage() {
           <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-24 sm:px-6 lg:px-8">
             <div className="rounded-2xl border border-border bg-card px-6 py-10 text-center shadow-soft">
               <div className="text-sm font-semibold">Loading your dashboard</div>
-              <div className="mt-1 text-xs text-muted-foreground">Fetching your account and profile details.</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Fetching your account and profile details.
+              </div>
             </div>
           </div>
         </main>
@@ -105,14 +201,20 @@ function DashboardPage() {
             <div className="flex items-center gap-4">
               <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-gradient text-lg font-semibold text-primary-foreground shadow-elegant">
                 {profile?.photoUrl ? (
-                  <img src={profile.photoUrl} alt="" className="h-full w-full rounded-2xl object-cover" />
+                  <img
+                    src={profile.photoUrl}
+                    alt=""
+                    className="h-full w-full rounded-2xl object-cover"
+                  />
                 ) : (
                   avatarLabel
                 )}
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Welcome back, {displayName}</p>
-              <h1 className="mt-1 font-display text-3xl font-semibold italic tracking-tight sm:text-4xl">Your dashboard</h1>
+                <h1 className="mt-1 font-display text-3xl font-semibold italic tracking-tight sm:text-4xl">
+                  Your dashboard
+                </h1>
                 <p className="mt-1 text-xs text-muted-foreground">Signed in as {email}</p>
               </div>
             </div>
@@ -122,7 +224,10 @@ function DashboardPage() {
                   Browse marketplace
                 </Button>
               </Link>
-              <Button className="rounded-full bg-brand-gradient text-primary-foreground shadow-elegant hover:opacity-90">
+              <Button
+                className="rounded-full bg-brand-gradient text-primary-foreground shadow-elegant hover:opacity-90"
+                onClick={() => setListingOpen(true)}
+              >
                 <Plus className="h-4 w-4" /> New listing
               </Button>
               <Button variant="ghost" className="rounded-full" onClick={handleSignOut}>
@@ -134,22 +239,31 @@ function DashboardPage() {
           {/* Stats */}
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { i: Eye, label: "Profile views", v: "1,284", t: "+12.4%" },
-              { i: Package, label: "Active listings", v: "8", t: "2 new" },
-              { i: MessageCircle, label: "Unread chats", v: "3", t: "Today" },
-              { i: TrendingUp, label: "Earnings", v: "₹14,520", t: "+₹2,400" },
+              { i: Package, label: "Your listings", v: String(myListings.length), t: "Firestore" },
+              { i: Heart, label: "Wishlist", v: String(wishlist.count), t: "This device" },
+              { i: MessageCircle, label: "Messages", v: "Open", t: "Peer chat" },
+              {
+                i: TrendingUp,
+                label: "Catalog size",
+                v: String(products.length),
+                t: "Merged feed",
+              },
             ].map((s, i) => (
               <motion.div
                 key={s.label}
-                initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }} transition={{ delay: i * 0.05 }}
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05 }}
                 className="rounded-2xl border border-border bg-card p-5 shadow-soft"
               >
                 <div className="flex items-center justify-between">
                   <div className="grid h-9 w-9 place-items-center rounded-xl bg-secondary text-foreground">
                     <s.i className="h-4 w-4" />
                   </div>
-                  <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold text-success">{s.t}</span>
+                  <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold text-success">
+                    {s.t}
+                  </span>
                 </div>
                 <div className="mt-4 text-2xl font-bold tracking-tight">{s.v}</div>
                 <div className="text-xs text-muted-foreground">{s.label}</div>
@@ -186,33 +300,16 @@ function DashboardPage() {
           <div className="mt-8 grid gap-6 lg:grid-cols-3">
             {/* Chart */}
             <div className="rounded-2xl border border-border bg-card p-6 shadow-soft lg:col-span-2">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold">Activity overview</h3>
-                  <p className="text-xs text-muted-foreground">Views and messages this week</p>
-                </div>
-                <div className="flex gap-2 text-xs">
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary" /> Views</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-foreground" /> Msgs</span>
-                </div>
+              <div className="mb-2">
+                <h3 className="text-sm font-semibold">Activity overview</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Fine-grained analytics are not wired yet. Use{" "}
+                  <span className="font-medium text-foreground">Your listings</span> below along
+                  with Messages to coordinate deals in real time.
+                </p>
               </div>
-              <div className="h-64">
-                <ResponsiveContainer>
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="dv" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                    <XAxis dataKey="d" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-                    <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-                    <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12 }} />
-                    <Area type="monotone" dataKey="views" stroke="var(--primary)" strokeWidth={2} fill="url(#dv)" />
-                    <Area type="monotone" dataKey="msgs" stroke="var(--foreground)" strokeWidth={2} fill="transparent" />
-                  </AreaChart>
-                </ResponsiveContainer>
+              <div className="mt-6 rounded-xl border border-dashed border-border bg-secondary/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                Charts activate automatically once view counts are stored alongside listings.
               </div>
             </div>
 
@@ -221,11 +318,21 @@ function DashboardPage() {
               <h3 className="text-sm font-semibold">Recent activity</h3>
               <ul className="mt-4 space-y-4">
                 {[
-                  { i: Heart, t: "Riya wishlisted your MacBook Air", time: "2m ago" },
-                  { i: MessageCircle, t: "New message from Karthik", time: "1h" },
-                  { i: ShoppingBag, t: "Order placed: Casio Calculator", time: "3h" },
-                  { i: BadgeCheck, t: "Identity re-verified ✓", time: "1d" },
-                  { i: Eye, t: "12 new views on your listings", time: "2d" },
+                  {
+                    i: Package,
+                    t: "Publish inventory with New listing — it syncs to Firestore instantly.",
+                    time: "Tip",
+                  },
+                  {
+                    i: MessageCircle,
+                    t: "Use Messages for meet-up coordination with Socket.IO chat.",
+                    time: "Tip",
+                  },
+                  {
+                    i: ShoppingBag,
+                    t: "Browse /marketplace for campus-wide inventory merged with live uploads.",
+                    time: "Tip",
+                  },
                 ].map((a, i) => (
                   <li key={i} className="flex items-start gap-3">
                     <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-secondary text-foreground">
@@ -245,7 +352,9 @@ function DashboardPage() {
           <section className="mt-12">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">My listings</h2>
-              <Link to="/marketplace" className="text-sm text-primary hover:underline">View all →</Link>
+              <Link to="/marketplace" className="text-sm text-primary hover:underline">
+                View all →
+              </Link>
             </div>
             <div className="overflow-hidden rounded-2xl border border-border bg-card">
               <table className="w-full text-sm">
@@ -258,21 +367,42 @@ function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {products.slice(0, 5).map((p) => (
-                    <tr key={p.id} className="hover:bg-secondary/30">
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-3">
-                          <img src={p.image} className="h-10 w-10 rounded-lg object-cover" alt="" />
-                          <span className="line-clamp-1 font-medium">{p.title}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 font-semibold">₹{p.price.toLocaleString("en-IN")}</td>
-                      <td className="px-5 py-3 text-muted-foreground">{120 + Math.floor(Math.random() * 200)}</td>
-                      <td className="px-5 py-3">
-                        <span className="rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">Active</span>
+                  {myListings.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-5 py-10 text-center text-sm text-muted-foreground"
+                      >
+                        No listings yet. Use{" "}
+                        <span className="font-medium text-foreground">New listing</span> to add your
+                        first item.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    myListings.map((p) => (
+                      <tr key={p.id} className="hover:bg-secondary/30">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={p.image}
+                              className="h-10 w-10 rounded-lg object-cover"
+                              alt=""
+                            />
+                            <span className="line-clamp-1 font-medium">{p.title}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 font-semibold">
+                          ₹{p.price.toLocaleString("en-IN")}
+                        </td>
+                        <td className="px-5 py-3 text-muted-foreground">—</td>
+                        <td className="px-5 py-3">
+                          <span className="rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">
+                            {p.availability ?? "Available"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -283,26 +413,36 @@ function DashboardPage() {
             <div className="rounded-2xl border border-border bg-card p-6">
               <h3 className="text-sm font-semibold">Wishlist</h3>
               <ul className="mt-4 space-y-3">
-                {products.slice(5, 9).map((p) => (
-                  <li key={p.id} className="flex items-center gap-3">
-                    <img src={p.image} className="h-12 w-12 rounded-lg object-cover" alt="" />
-                    <div className="flex-1">
-                      <div className="line-clamp-1 text-sm font-medium">{p.title}</div>
-                      <div className="text-xs text-muted-foreground">₹{p.price.toLocaleString("en-IN")} · {p.seller.college}</div>
-                    </div>
-                    <Heart className="h-4 w-4 fill-destructive text-destructive" />
+                {wishlist.count === 0 ? (
+                  <li className="text-sm text-muted-foreground">
+                    Save items from the marketplace with the heart icon.
                   </li>
-                ))}
+                ) : (
+                  wishlist.items.map((p) => (
+                    <li key={p.id} className="flex items-center gap-3">
+                      <img src={p.image} className="h-12 w-12 rounded-lg object-cover" alt="" />
+                      <div className="flex-1 min-w-0">
+                        <div className="line-clamp-1 text-sm font-medium">{p.title}</div>
+                        <div className="text-xs text-muted-foreground">
+                          ₹{p.price.toLocaleString("en-IN")} · {p.seller.college}
+                        </div>
+                      </div>
+                      <Heart className="h-4 w-4 shrink-0 fill-destructive text-destructive" />
+                    </li>
+                  ))
+                )}
               </ul>
             </div>
             <div className="rounded-2xl border border-border bg-card p-6">
               <h3 className="text-sm font-semibold">Recent chats</h3>
               <ul className="mt-4 space-y-3">
-                {conversations.map((c) => (
+                {peerConversations.map((c) => (
                   <li key={c.id} className="flex items-center gap-3">
                     <div className="relative">
                       <img src={c.avatar} alt="" className="h-10 w-10 rounded-full" />
-                      {c.online && <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-success ring-2 ring-card" />}
+                      {c.online && (
+                        <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-success ring-2 ring-card" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
@@ -335,7 +475,9 @@ function DashboardPage() {
                   <RotateCcw className="h-5 w-5" />
                 </div>
                 <div className="mt-4 text-sm font-semibold">No rentals yet</div>
-                <div className="mt-1 text-xs text-muted-foreground">Rent items from the marketplace to see them here.</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Rent items from the marketplace to see them here.
+                </div>
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
@@ -366,7 +508,9 @@ function DashboardPage() {
                                 ₹{p.rentPerDay}/day · {p.pickupLocation ?? p.seller.college}
                               </div>
                             </div>
-                            <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${chip}`}>
+                            <span
+                              className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${chip}`}
+                            >
                               {status}
                             </span>
                           </div>
@@ -406,16 +550,23 @@ function DashboardPage() {
                 <DialogHeader>
                   <DialogTitle>Return item</DialogTitle>
                   <DialogDescription>
-                    Request a return pickup or hand-off for your rental. We'll notify the owner and track status here.
+                    Request a return pickup or hand-off for your rental. We'll notify the owner and
+                    track status here.
                   </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4">
                   {selectedRental ? (
                     <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
-                      <img src={selectedRental.image} alt="" className="h-12 w-12 rounded-xl object-cover" />
+                      <img
+                        src={selectedRental.image}
+                        alt=""
+                        className="h-12 w-12 rounded-xl object-cover"
+                      />
                       <div className="min-w-0">
-                        <div className="line-clamp-1 text-sm font-semibold">{selectedRental.title}</div>
+                        <div className="line-clamp-1 text-sm font-semibold">
+                          {selectedRental.title}
+                        </div>
                         <div className="mt-1 text-xs text-muted-foreground">
                           Pickup: {selectedRental.pickupLocation ?? selectedRental.seller.college}
                         </div>
@@ -425,7 +576,9 @@ function DashboardPage() {
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="space-y-1">
-                      <div className="text-xs font-semibold text-muted-foreground">Preferred return date</div>
+                      <div className="text-xs font-semibold text-muted-foreground">
+                        Preferred return date
+                      </div>
                       <input
                         type="date"
                         value={returnDate}
@@ -434,12 +587,16 @@ function DashboardPage() {
                       />
                     </label>
                     <div className="rounded-xl border border-border bg-secondary/40 p-3 text-xs text-muted-foreground">
-                      Status becomes <span className="font-semibold text-foreground">Return Requested</span> after confirmation.
+                      Status becomes{" "}
+                      <span className="font-semibold text-foreground">Return Requested</span> after
+                      confirmation.
                     </div>
                   </div>
 
                   <label className="space-y-1">
-                    <div className="text-xs font-semibold text-muted-foreground">Note (optional)</div>
+                    <div className="text-xs font-semibold text-muted-foreground">
+                      Note (optional)
+                    </div>
                     <textarea
                       value={returnNote}
                       onChange={(e) => setReturnNote(e.target.value)}
@@ -450,7 +607,11 @@ function DashboardPage() {
                 </div>
 
                 <DialogFooter>
-                  <Button variant="outline" className="rounded-full" onClick={() => setReturnOpen(false)}>
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => setReturnOpen(false)}
+                  >
                     Cancel
                   </Button>
                   <Button
@@ -464,6 +625,142 @@ function DashboardPage() {
                     }}
                   >
                     Confirm return request
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={listingOpen} onOpenChange={setListingOpen}>
+              <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>New listing</DialogTitle>
+                  <DialogDescription>
+                    Listings are stored in Firebase Firestore and merged with the curated demo
+                    catalog everywhere shoppers browse.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid gap-3 py-2">
+                  <label className="space-y-1 text-xs font-semibold text-muted-foreground">
+                    Title
+                    <input
+                      value={listingForm.title}
+                      onChange={(e) => setListingForm((f) => ({ ...f, title: e.target.value }))}
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                    />
+                  </label>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="space-y-1 text-xs font-semibold text-muted-foreground">
+                      Price (₹)
+                      <input
+                        type="number"
+                        min={1}
+                        value={listingForm.price}
+                        onChange={(e) => setListingForm((f) => ({ ...f, price: e.target.value }))}
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs font-semibold text-muted-foreground">
+                      Category
+                      <select
+                        value={listingForm.category}
+                        onChange={(e) =>
+                          setListingForm((f) => ({ ...f, category: e.target.value as Category }))
+                        }
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                      >
+                        {PRODUCT_CATEGORIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <label className="space-y-1 text-xs font-semibold text-muted-foreground">
+                    Condition
+                    <select
+                      value={listingForm.condition}
+                      onChange={(e) =>
+                        setListingForm((f) => ({
+                          ...f,
+                          condition: e.target.value as Product["condition"],
+                        }))
+                      }
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                    >
+                      {(["New", "Like New", "Good", "Fair"] as const).map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="space-y-1 text-xs font-semibold text-muted-foreground">
+                    Cover image URL
+                    <input
+                      value={listingForm.image}
+                      onChange={(e) => setListingForm((f) => ({ ...f, image: e.target.value }))}
+                      placeholder="https://…"
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                    />
+                  </label>
+
+                  <label className="space-y-1 text-xs font-semibold text-muted-foreground">
+                    Description
+                    <textarea
+                      value={listingForm.description}
+                      onChange={(e) =>
+                        setListingForm((f) => ({ ...f, description: e.target.value }))
+                      }
+                      rows={3}
+                      className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                    />
+                  </label>
+
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={listingForm.forRent}
+                      onChange={(e) => setListingForm((f) => ({ ...f, forRent: e.target.checked }))}
+                      className="rounded border-input"
+                    />
+                    Offer for rent (per day)
+                  </label>
+
+                  {listingForm.forRent ? (
+                    <label className="space-y-1 text-xs font-semibold text-muted-foreground">
+                      Rent per day (₹)
+                      <input
+                        type="number"
+                        min={1}
+                        value={listingForm.rentPerDay}
+                        onChange={(e) =>
+                          setListingForm((f) => ({ ...f, rentPerDay: e.target.value }))
+                        }
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                      />
+                    </label>
+                  ) : null}
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => setListingOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="rounded-full bg-brand-gradient text-primary-foreground shadow-soft hover:opacity-90"
+                    disabled={listingSubmitting}
+                    onClick={() => void submitNewListing()}
+                  >
+                    {listingSubmitting ? "Publishing…" : "Publish listing"}
                   </Button>
                 </DialogFooter>
               </DialogContent>

@@ -1,15 +1,25 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
-  BadgeCheck, Heart, MessageCircle, Share2, MapPin, Calendar, Shield,
-  TrendingUp, Sparkles, ArrowLeft, Star, RotateCcw,
+  BadgeCheck,
+  Heart,
+  MessageCircle,
+  Share2,
+  MapPin,
+  Calendar,
+  Shield,
+  TrendingUp,
+  Sparkles,
+  ArrowLeft,
+  Star,
+  RotateCcw,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { ProductCard } from "@/components/product-card";
 import { Button } from "@/components/ui/button";
-import { products } from "@/lib/mock-data";
+import { useCatalog } from "@/lib/catalog";
 import { useWishlist } from "@/lib/wishlist";
 import {
   Dialog,
@@ -19,9 +29,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  AreaChart, Area, ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from "recharts";
+import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ListingSafetyBanner } from "@/components/listing-safety-banner";
+import { analyzeListingRisk } from "@/lib/product-safety";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/product/$id")({
   component: ProductDetails,
@@ -29,7 +40,9 @@ export const Route = createFileRoute("/product/$id")({
     <div className="grid min-h-[60vh] place-items-center text-center">
       <div>
         <h1 className="text-2xl font-semibold">Listing not found</h1>
-        <Link to="/marketplace" className="mt-3 inline-block text-primary hover:underline">Back to marketplace</Link>
+        <Link to="/marketplace" className="mt-3 inline-block text-primary hover:underline">
+          Back to marketplace
+        </Link>
       </div>
     </div>
   ),
@@ -37,6 +50,7 @@ export const Route = createFileRoute("/product/$id")({
 
 function ProductDetails() {
   const { id } = Route.useParams();
+  const { products } = useCatalog();
   const product = products.find((p) => p.id === id);
   if (!product) throw notFound();
   const [active, setActive] = useState(0);
@@ -46,26 +60,56 @@ function ProductDetails() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewText, setReviewText] = useState("");
   const [returnOpen, setReturnOpen] = useState(false);
-  const [returnStatus, setReturnStatus] = useState<"Active Rental" | "Return Requested" | "Returned Successfully">("Active Rental");
+  const [returnStatus, setReturnStatus] = useState<
+    "Active Rental" | "Return Requested" | "Returned Successfully"
+  >("Active Rental");
   const [returnDate, setReturnDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 3);
     return d.toISOString().slice(0, 10);
   });
-  const gallery = product.images?.length ? product.images : [product.image, product.image, product.image, product.image];
-  const similar = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const gallery = product.images?.length
+    ? product.images
+    : [product.image, product.image, product.image, product.image];
+  const similar = products
+    .filter((p) => p.category === product.category && p.id !== product.id)
+    .slice(0, 4);
 
   const aiPrice = Math.round(product.price * 0.96);
   const trend = [
-    { m: "Apr", p: aiPrice + 400 }, { m: "May", p: aiPrice + 280 },
-    { m: "Jun", p: aiPrice + 150 }, { m: "Jul", p: aiPrice + 80 },
-    { m: "Aug", p: aiPrice + 30 },  { m: "Sep", p: aiPrice },
+    { m: "Apr", p: aiPrice + 400 },
+    { m: "May", p: aiPrice + 280 },
+    { m: "Jun", p: aiPrice + 150 },
+    { m: "Jul", p: aiPrice + 80 },
+    { m: "Aug", p: aiPrice + 30 },
+    { m: "Sep", p: aiPrice },
   ];
 
   const [reviews, setReviews] = useState(() => [
-    { id: "r1", name: "Verified Buyer", verified: true, rating: 5, text: "Smooth transaction and genuine pricing.", time: "2 days ago" },
-    { id: "r2", name: "Ankita", verified: true, rating: 4, text: "Quick replies and item matched the description.", time: "1 week ago" },
-    { id: "r3", name: "Rahul", verified: false, rating: 5, text: "On-time meet-up. Great experience.", time: "3 weeks ago" },
+    {
+      id: "r1",
+      name: "Verified Buyer",
+      verified: true,
+      rating: 5,
+      text: "Smooth transaction and genuine pricing.",
+      time: "2 days ago",
+    },
+    {
+      id: "r2",
+      name: "Ankita",
+      verified: true,
+      rating: 4,
+      text: "Quick replies and item matched the description.",
+      time: "1 week ago",
+    },
+    {
+      id: "r3",
+      name: "Rahul",
+      verified: false,
+      rating: 5,
+      text: "On-time meet-up. Great experience.",
+      time: "3 weeks ago",
+    },
   ]);
 
   const avgRating = useMemo(() => {
@@ -73,12 +117,31 @@ function ProductDetails() {
     return reviews.length ? sum / reviews.length : product.seller.rating;
   }, [reviews, product.seller.rating]);
 
+  useEffect(() => {
+    const report = analyzeListingRisk(product);
+    if (report.level !== "high") return;
+    const key = `risk-toast:${product.id}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {
+      // ignore
+    }
+    toast.warning("Listing flagged — review carefully", {
+      description:
+        "Automated checks found elevated risk signals. Read the safety notice and verify before paying.",
+    });
+  }, [product]);
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
       <main className="flex-1">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <Link to="/marketplace" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+          <Link
+            to="/marketplace"
+            className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft className="h-4 w-4" /> Back to marketplace
           </Link>
 
@@ -92,7 +155,11 @@ function ProductDetails() {
                 transition={{ duration: 0.25 }}
                 className="overflow-hidden rounded-3xl border border-border bg-card"
               >
-                <img src={gallery[active]} alt={product.title} className="aspect-square w-full object-cover" />
+                <img
+                  src={gallery[active]}
+                  alt={product.title}
+                  className="aspect-square w-full object-cover"
+                />
               </motion.div>
               <div className="mt-3 grid grid-cols-4 gap-3">
                 {gallery.map((g, i) => (
@@ -112,10 +179,18 @@ function ProductDetails() {
               <div className="flex flex-wrap gap-1.5 text-[11px] font-medium text-muted-foreground">
                 <span className="rounded-full bg-secondary px-2 py-0.5">{product.category}</span>
                 <span className="rounded-full bg-secondary px-2 py-0.5">{product.condition}</span>
-                <span className="rounded-full bg-secondary px-2 py-0.5">Posted {product.postedAgo}</span>
-                {product.usedFor ? <span className="rounded-full bg-secondary px-2 py-0.5">Used for {product.usedFor}</span> : null}
+                <span className="rounded-full bg-secondary px-2 py-0.5">
+                  Posted {product.postedAgo}
+                </span>
+                {product.usedFor ? (
+                  <span className="rounded-full bg-secondary px-2 py-0.5">
+                    Used for {product.usedFor}
+                  </span>
+                ) : null}
                 {product.availability ? (
-                  <span className="rounded-full bg-secondary px-2 py-0.5">{product.availability}</span>
+                  <span className="rounded-full bg-secondary px-2 py-0.5">
+                    {product.availability}
+                  </span>
                 ) : null}
               </div>
               <h1 className="mt-3 font-display text-3xl font-semibold italic leading-tight tracking-tight sm:text-4xl">
@@ -123,7 +198,9 @@ function ProductDetails() {
               </h1>
 
               <div className="mt-5 flex items-end gap-3">
-                <span className="text-4xl font-bold tracking-tight">₹{product.price.toLocaleString("en-IN")}</span>
+                <span className="text-4xl font-bold tracking-tight">
+                  ₹{product.price.toLocaleString("en-IN")}
+                </span>
                 {product.originalPrice && (
                   <span className="pb-1 text-base text-muted-foreground line-through">
                     ₹{product.originalPrice.toLocaleString("en-IN")}
@@ -131,18 +208,37 @@ function ProductDetails() {
                 )}
               </div>
 
-              <p className="mt-5 text-sm leading-relaxed text-muted-foreground">{product.description}</p>
+              <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
+                {product.description}
+              </p>
+
+              <div className="mt-5">
+                <ListingSafetyBanner product={product} />
+              </div>
 
               {/* Metadata */}
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 {[
                   { k: "Pickup", v: product.pickupLocation ?? "On campus" },
                   { k: "Department", v: product.department ?? "—" },
-                  { k: "Price", v: typeof product.negotiable === "boolean" ? (product.negotiable ? "Negotiable" : "Fixed") : "—" },
+                  {
+                    k: "Price",
+                    v:
+                      typeof product.negotiable === "boolean"
+                        ? product.negotiable
+                          ? "Negotiable"
+                          : "Fixed"
+                        : "—",
+                  },
                   { k: "Age", v: product.itemAge ?? "—" },
                 ].map((x) => (
-                  <div key={x.k} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{x.k}</div>
+                  <div
+                    key={x.k}
+                    className="rounded-2xl border border-border bg-card p-4 shadow-soft"
+                  >
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {x.k}
+                    </div>
                     <div className="mt-1 text-sm font-semibold">{x.v}</div>
                   </div>
                 ))}
@@ -151,7 +247,10 @@ function ProductDetails() {
               {product.tags?.length ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {product.tags.slice(0, 8).map((t) => (
-                    <span key={t} className="rounded-full border border-border bg-secondary/50 px-3 py-1 text-[11px] font-medium text-muted-foreground">
+                    <span
+                      key={t}
+                      className="rounded-full border border-border bg-secondary/50 px-3 py-1 text-[11px] font-medium text-muted-foreground"
+                    >
                       {t}
                     </span>
                   ))}
@@ -181,10 +280,14 @@ function ProductDetails() {
                     </div>
                     <div>
                       <div className="text-sm font-semibold">AI fair-price estimate</div>
-                      <div className="text-xs text-muted-foreground">Based on 142 similar campus listings</div>
+                      <div className="text-xs text-muted-foreground">
+                        Based on 142 similar campus listings
+                      </div>
                     </div>
                   </div>
-                  <span className="rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-semibold text-success">94% confidence</span>
+                  <span className="rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-semibold text-success">
+                    94% confidence
+                  </span>
                 </div>
                 <div className="mt-4 grid gap-4 sm:grid-cols-3">
                   <div>
@@ -214,10 +317,21 @@ function ProductDetails() {
                       <XAxis dataKey="m" hide />
                       <YAxis hide domain={["auto", "auto"]} />
                       <Tooltip
-                        contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12 }}
+                        contentStyle={{
+                          background: "var(--card)",
+                          border: "1px solid var(--border)",
+                          borderRadius: 12,
+                          fontSize: 12,
+                        }}
                         formatter={(v: number) => [`₹${v.toLocaleString("en-IN")}`, "Avg"]}
                       />
-                      <Area type="monotone" dataKey="p" stroke="var(--primary)" strokeWidth={2} fill="url(#g)" />
+                      <Area
+                        type="monotone"
+                        dataKey="p"
+                        stroke="var(--primary)"
+                        strokeWidth={2}
+                        fill="url(#g)"
+                      />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -225,7 +339,10 @@ function ProductDetails() {
 
               {/* Actions */}
               <div className="mt-6 flex flex-wrap gap-3">
-                <Button size="lg" className="flex-1 rounded-full bg-brand-gradient text-primary-foreground shadow-elegant hover:opacity-90">
+                <Button
+                  size="lg"
+                  className="flex-1 rounded-full bg-brand-gradient text-primary-foreground shadow-elegant hover:opacity-90"
+                >
                   Buy now · ₹{product.price.toLocaleString("en-IN")}
                 </Button>
                 {product.forRent && (
@@ -264,18 +381,46 @@ function ProductDetails() {
                   <img src={product.seller.avatar} alt="" className="h-12 w-12 rounded-full" />
                   <div className="flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-semibold">{product.seller.name}</span>
-                    {product.seller.verified && <BadgeCheck className="h-4 w-4 text-foreground" />}
+                      {product.sellerId ? (
+                        <Link
+                          to="/profile/$userId"
+                          params={{ userId: product.sellerId }}
+                          className="font-semibold hover:underline"
+                        >
+                          {product.seller.name}
+                        </Link>
+                      ) : (
+                        <span className="font-semibold">{product.seller.name}</span>
+                      )}
+                      {product.seller.verified && (
+                        <BadgeCheck className="h-4 w-4 text-foreground" />
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <MapPin className="h-3 w-3" /> {product.seller.college} · ★ {product.seller.rating}
+                      <MapPin className="h-3 w-3" /> {product.seller.college} · ★{" "}
+                      {product.seller.rating}
                     </div>
                   </div>
-                  <Link to="/chat">
-                    <Button size="sm" className="rounded-full">
-                      <MessageCircle className="h-4 w-4" /> Chat
-                    </Button>
-                  </Link>
+                  {product.sellerId ? (
+                    <Link
+                      to="/chat"
+                      search={{
+                        peerUid: product.sellerId,
+                        peerName: product.seller.name,
+                        peerAvatar: product.seller.avatar,
+                      }}
+                    >
+                      <Button size="sm" className="rounded-full">
+                        <MessageCircle className="h-4 w-4" /> Chat
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Link to="/chat">
+                      <Button size="sm" variant="outline" className="rounded-full">
+                        <MessageCircle className="h-4 w-4" /> Messages
+                      </Button>
+                    </Link>
+                  )}
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
                   <div className="flex items-center gap-2 rounded-xl bg-secondary/60 p-3">
@@ -297,21 +442,32 @@ function ProductDetails() {
                     <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                       <div className="flex items-center gap-0.5 text-foreground/80">
                         {[...Array(5)].map((_, i) => (
-                          <Star key={i} className={`h-3.5 w-3.5 ${i < Math.round(avgRating) ? "fill-current" : ""}`} />
+                          <Star
+                            key={i}
+                            className={`h-3.5 w-3.5 ${i < Math.round(avgRating) ? "fill-current" : ""}`}
+                          />
                         ))}
                       </div>
                       <span className="font-semibold text-foreground">{avgRating.toFixed(1)}</span>
                       <span>· {reviews.length} reviews</span>
                     </div>
                   </div>
-                  <Button size="sm" variant="outline" className="rounded-full" onClick={() => setReviewOpen(true)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => setReviewOpen(true)}
+                  >
                     Write review
                   </Button>
                 </div>
 
                 <div className="mt-5 space-y-3">
                   {reviews.slice(0, 3).map((r) => (
-                    <div key={r.id} className="rounded-2xl border border-border bg-secondary/20 p-4">
+                    <div
+                      key={r.id}
+                      className="rounded-2xl border border-border bg-secondary/20 p-4"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="flex items-center gap-2">
@@ -324,7 +480,10 @@ function ProductDetails() {
                           </div>
                           <div className="mt-1 flex items-center gap-0.5 text-foreground/80">
                             {[...Array(5)].map((_, i) => (
-                              <Star key={i} className={`h-3.5 w-3.5 ${i < r.rating ? "fill-current" : ""}`} />
+                              <Star
+                                key={i}
+                                className={`h-3.5 w-3.5 ${i < r.rating ? "fill-current" : ""}`}
+                              />
                             ))}
                           </div>
                         </div>
@@ -344,7 +503,10 @@ function ProductDetails() {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {["Central Library", "Cafeteria Block C", "Main Gate"].map((p) => (
-                    <button key={p} className="rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs hover:bg-secondary">
+                    <button
+                      key={p}
+                      className="rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs hover:bg-secondary"
+                    >
                       <span className="inline-flex items-center gap-1.5">
                         <MapPin className="h-3.5 w-3.5" /> {p}
                       </span>
@@ -359,7 +521,9 @@ function ProductDetails() {
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Write a review</DialogTitle>
-                <DialogDescription>Share quick feedback for the seller after your transaction.</DialogDescription>
+                <DialogDescription>
+                  Share quick feedback for the seller after your transaction.
+                </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4">
@@ -374,7 +538,9 @@ function ProductDetails() {
                         className="rounded-lg p-1.5 transition hover:bg-secondary"
                         aria-label={`Rate ${n} stars`}
                       >
-                        <Star className={`h-5 w-5 ${n <= reviewRating ? "fill-current text-foreground" : "text-muted-foreground"}`} />
+                        <Star
+                          className={`h-5 w-5 ${n <= reviewRating ? "fill-current text-foreground" : "text-muted-foreground"}`}
+                        />
                       </button>
                     ))}
                   </div>
@@ -391,7 +557,11 @@ function ProductDetails() {
               </div>
 
               <DialogFooter>
-                <Button variant="outline" className="rounded-full" onClick={() => setReviewOpen(false)}>
+                <Button
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={() => setReviewOpen(false)}
+                >
                   Cancel
                 </Button>
                 <Button
@@ -399,7 +569,14 @@ function ProductDetails() {
                   onClick={() => {
                     if (!reviewText.trim()) return;
                     setReviews((rs) => [
-                      { id: crypto.randomUUID(), name: "You", verified: true, rating: reviewRating, text: reviewText.trim(), time: "Just now" },
+                      {
+                        id: crypto.randomUUID(),
+                        name: "You",
+                        verified: true,
+                        rating: reviewRating,
+                        text: reviewText.trim(),
+                        time: "Just now",
+                      },
                       ...rs,
                     ]);
                     setReviewText("");
@@ -417,7 +594,9 @@ function ProductDetails() {
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Return rental</DialogTitle>
-                <DialogDescription>Request a return for this rented listing and coordinate hand-off details.</DialogDescription>
+                <DialogDescription>
+                  Request a return for this rented listing and coordinate hand-off details.
+                </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4">
@@ -437,7 +616,9 @@ function ProductDetails() {
                 </div>
 
                 <label className="space-y-1">
-                  <div className="text-xs font-semibold text-muted-foreground">Preferred return date</div>
+                  <div className="text-xs font-semibold text-muted-foreground">
+                    Preferred return date
+                  </div>
                   <input
                     type="date"
                     value={returnDate}
@@ -449,7 +630,11 @@ function ProductDetails() {
               </div>
 
               <DialogFooter>
-                <Button variant="outline" className="rounded-full" onClick={() => setReturnOpen(false)}>
+                <Button
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={() => setReturnOpen(false)}
+                >
                   Close
                 </Button>
                 <Button
@@ -465,9 +650,13 @@ function ProductDetails() {
 
           {/* Similar */}
           <section className="mt-20">
-            <h2 className="font-display text-2xl font-semibold italic tracking-tight">Similar listings</h2>
+            <h2 className="font-display text-2xl font-semibold italic tracking-tight">
+              Similar listings
+            </h2>
             <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-              {similar.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+              {similar.map((p, i) => (
+                <ProductCard key={p.id} product={p} index={i} />
+              ))}
             </div>
           </section>
         </div>

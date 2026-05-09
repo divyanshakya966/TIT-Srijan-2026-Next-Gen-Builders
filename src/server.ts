@@ -145,23 +145,26 @@ async function syncUserWithMongoDriver(user: AuthUser, env: unknown) {
   const client = await getMongoClient(mongoUri);
   const now = new Date().toISOString();
 
-  await client.db(database).collection(collection).updateOne(
-    { firebaseUid: user.localId },
-    {
-      $set: {
-        email: user.email ?? null,
-        displayName: user.displayName ?? null,
-        photoUrl: user.photoUrl ?? null,
-        emailVerified: Boolean(user.emailVerified),
-        lastLoginAt: now,
+  await client
+    .db(database)
+    .collection(collection)
+    .updateOne(
+      { firebaseUid: user.localId },
+      {
+        $set: {
+          email: user.email ?? null,
+          displayName: user.displayName ?? null,
+          photoUrl: user.photoUrl ?? null,
+          emailVerified: Boolean(user.emailVerified),
+          lastLoginAt: now,
+        },
+        $setOnInsert: {
+          firebaseUid: user.localId,
+          createdAt: now,
+        },
       },
-      $setOnInsert: {
-        firebaseUid: user.localId,
-        createdAt: now,
-      },
-    },
-    { upsert: true },
-  );
+      { upsert: true },
+    );
 }
 
 async function syncUserWithDataApi(user: AuthUser, env: unknown) {
@@ -224,10 +227,10 @@ async function readUserWithMongoDriver(userId: string, env: unknown) {
   }
 
   const client = await getMongoClient(mongoUri);
-  return client.db(database).collection<StoredUserProfile>(collection).findOne(
-    { firebaseUid: userId },
-    { projection: { _id: 0 } },
-  );
+  return client
+    .db(database)
+    .collection<StoredUserProfile>(collection)
+    .findOne({ firebaseUid: userId }, { projection: { _id: 0 } });
 }
 
 async function readUserWithDataApi(userId: string, env: unknown) {
@@ -314,7 +317,9 @@ async function completeAiChat(messages: AiChatMessage[], env: unknown) {
     "meta-llama/llama-3.1-8b-instruct";
 
   if (!apiKey) {
-    throw new Error("Missing OpenRouter key. Set OPENROUTER_API_KEY in server environment variables.");
+    throw new Error(
+      "Missing OpenRouter key. Set OPENROUTER_API_KEY in server environment variables.",
+    );
   }
 
   const client = new OpenRouter({ apiKey });
@@ -335,7 +340,7 @@ async function completeAiChat(messages: AiChatMessage[], env: unknown) {
 
   if (Array.isArray(text)) {
     return text
-      .map((part) => (typeof part === "string" ? part : part?.text ?? ""))
+      .map((part) => (typeof part === "string" ? part : (part?.text ?? "")))
       .join("")
       .trim();
   }
@@ -355,7 +360,10 @@ async function handleApiRequest(request: Request, env: unknown): Promise<Respons
   const authHeader = request.headers.get("authorization") ?? "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
 
-  if (url.pathname !== "/api/ai/chat" && !token) {
+  const allowAnonymousAi = getEnvValue(env, "OPENROUTER_ALLOW_ANONYMOUS") === "true";
+  const aiChatAllowsAnonymous = url.pathname === "/api/ai/chat" && allowAnonymousAi;
+
+  if (!token && !aiChatAllowsAnonymous) {
     return new Response("Unauthorized", { status: 401 });
   }
 

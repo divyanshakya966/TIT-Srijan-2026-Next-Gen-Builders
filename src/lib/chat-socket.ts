@@ -9,6 +9,8 @@ export type ChatThread = {
   lastMsg: string;
   time: string;
   unread: number;
+  /** Client-only: opens AI assistant route instead of Socket thread */
+  isBot?: boolean;
 };
 
 export type ChatAttachment = {
@@ -67,10 +69,22 @@ export type ChatSocketClientEvents = {
     replyTo?: ChatMessage["replyTo"] | null;
     attachments?: ChatAttachment[];
   }) => void;
-  "chat:message:edit": (payload: { threadId: string; messageId: string; text: string; user: ChatUser }) => void;
+  "chat:message:edit": (payload: {
+    threadId: string;
+    messageId: string;
+    text: string;
+    user: ChatUser;
+  }) => void;
   "chat:message:delete": (payload: { threadId: string; messageId: string; user: ChatUser }) => void;
-  "chat:message:react": (payload: { threadId: string; messageId: string; emoji: string; user: ChatUser }) => void;
+  "chat:message:react": (payload: {
+    threadId: string;
+    messageId: string;
+    emoji: string;
+    user: ChatUser;
+  }) => void;
   "chat:typing": (payload: { threadId: string; user: ChatUser; typing: boolean }) => void;
+  /** Creates a peer DM thread on the Socket.IO worker if missing (id must start with dm_). */
+  "chat:dm:ensure": (payload: { threadId: string; thread: ChatThread }) => void;
 };
 
 let socket: Socket<ChatSocketEvents, ChatSocketClientEvents> | null = null;

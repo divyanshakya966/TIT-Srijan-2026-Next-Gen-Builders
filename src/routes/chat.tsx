@@ -26,7 +26,8 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
-import { conversations } from "@/lib/mock-data";
+import { AI_ASSISTANT_THREAD } from "@/lib/chat-ai-thread";
+import { dmThreadId } from "@/lib/chat-dm";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -45,19 +46,27 @@ import {
   type ChatThread,
 } from "@/lib/chat-socket";
 
-export const Route = createFileRoute("/chat")({ component: ChatPage });
+export const Route = createFileRoute("/chat")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    peerUid: typeof search.peerUid === "string" ? search.peerUid : undefined,
+    peerName: typeof search.peerName === "string" ? search.peerName : undefined,
+    peerAvatar: typeof search.peerAvatar === "string" ? search.peerAvatar : undefined,
+  }),
+  component: ChatPage,
+});
 
 const EMOJIS = ["👍", "❤️", "😂", "🔥", "👏", "😮", "😅", "🙏", "🎉", "✅", "💯", "✨"];
 
 function ChatPage() {
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const socket = useMemo(() => getChatSocket(), []);
   const { user, loading: authLoading } = useAuth();
   const profileQuery = useCurrentUserProfile();
   const profile = profileQuery.data ?? (user ? buildFallbackUserProfile(user) : null);
 
-  const [threads, setThreads] = useState<ChatThread[]>(() => conversations);
-  const [activeId, setActiveId] = useState(conversations[0].id);
+  const [threads, setThreads] = useState<ChatThread[]>(() => [AI_ASSISTANT_THREAD]);
+  const [activeId, setActiveId] = useState(AI_ASSISTANT_THREAD.id);
   const [showThread, setShowThread] = useState(false);
   const active = threads.find((c) => c.id === activeId) ?? threads[0];
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -86,7 +95,9 @@ function ChatPage() {
   }, [messages]);
 
   const revokeMessagePreviews = (ms: ChatMessage[]) => {
-    ms.forEach((m) => m.attachments?.forEach((a) => a.previewUrl && URL.revokeObjectURL(a.previewUrl)));
+    ms.forEach((m) =>
+      m.attachments?.forEach((a) => a.previewUrl && URL.revokeObjectURL(a.previewUrl)),
+    );
   };
 
   useEffect(() => {
@@ -100,7 +111,11 @@ function ChatPage() {
     if (!shouldAuto) return;
 
     // wait for DOM updates and any images to settle
-    requestAnimationFrame(() => requestAnimationFrame(() => container.scrollTo({ top: container.scrollHeight, behavior: "smooth" })));
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() =>
+        container.scrollTo({ top: container.scrollHeight, behavior: "smooth" }),
+      ),
+    );
   }, [messages.length, typing, pending.length, replyTo?.id, editingId]);
 
   useEffect(() => {
@@ -109,7 +124,8 @@ function ChatPage() {
 
     const onScroll = () => {
       const threshold = 64; // px
-      const nearBottom = container.scrollTop + container.clientHeight + threshold >= container.scrollHeight;
+      const nearBottom =
+        container.scrollTop + container.clientHeight + threshold >= container.scrollHeight;
       isAutoScrollRef.current = nearBottom;
     };
 
@@ -123,20 +139,39 @@ function ChatPage() {
     }
 
     const handleThreads = ({ threads: nextThreads }: { threads: ChatThread[] }) => {
-      setThreads(nextThreads);
+      setThreads([
+        AI_ASSISTANT_THREAD,
+        ...nextThreads.filter((t) => t.id !== AI_ASSISTANT_THREAD.id),
+      ]);
     };
 
-    const handleThreadMessages = ({ thread, messages: nextMessages }: { thread: ChatThread; messages: ChatMessage[] }) => {
+    const handleThreadMessages = ({
+      thread,
+      messages: nextMessages,
+    }: {
+      thread: ChatThread;
+      messages: ChatMessage[];
+    }) => {
       if (thread.id !== activeIdRef.current) return;
       setMessages(nextMessages);
     };
 
-    const handleThreadUpdate = ({ thread, messages: nextMessages }: { thread: ChatThread; messages: ChatMessage[] }) => {
+    const handleThreadUpdate = ({
+      thread,
+      messages: nextMessages,
+    }: {
+      thread: ChatThread;
+      messages: ChatMessage[];
+    }) => {
       const threadId = thread.id;
       setThreads((current) =>
         current.map((thread) =>
           thread.id === threadId
-            ? { ...thread, lastMsg: nextMessages.at(-1)?.text ?? thread.lastMsg, time: nextMessages.at(-1)?.time ?? thread.time }
+            ? {
+                ...thread,
+                lastMsg: nextMessages.at(-1)?.text ?? thread.lastMsg,
+                time: nextMessages.at(-1)?.time ?? thread.time,
+              }
             : thread,
         ),
       );
@@ -169,6 +204,52 @@ function ChatPage() {
     [profile, user],
   );
 
+  useEffect(() => {
+    if (!search.peerUid || !user?.uid || search.peerUid === user.uid || authLoading) {
+      return undefined;
+    }
+
+    const threadId = dmThreadId(user.uid, search.peerUid);
+    const peerThread: ChatThread = {
+      id: threadId,
+      name: search.peerName ?? "Student",
+      avatar:
+        search.peerAvatar?.trim() ||
+        `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(search.peerUid)}`,
+      product: "Direct message",
+      online: false,
+      lastMsg: "",
+      time: "",
+      unread: 0,
+    };
+
+    const ensureDm = () => {
+      socket.emit("chat:dm:ensure", { threadId, thread: peerThread });
+    };
+
+    if (socket.connected) ensureDm();
+    socket.on("connect", ensureDm);
+
+    return () => {
+      socket.off("connect", ensureDm);
+    };
+  }, [
+    authLoading,
+    search.peerAvatar,
+    search.peerName,
+    search.peerUid,
+    socket,
+    user?.uid,
+  ]);
+
+  useEffect(() => {
+    if (!search.peerUid || !user?.uid) return;
+    const tid = dmThreadId(user.uid, search.peerUid);
+    if (!threads.some((t) => t.id === tid)) return;
+    setActiveId(tid);
+    setShowThread(true);
+  }, [threads, search.peerUid, user?.uid]);
+
   const AI_AVATAR = "https://avatars.dicebear.com/api/identicon/ai-assistant.svg";
   const AI_NAME = "AI Assistant";
 
@@ -177,6 +258,20 @@ function ChatPage() {
 
     revokeMessagePreviews(messagesRef.current);
     setMessages([]);
+    if (activeId === AI_ASSISTANT_THREAD.id) {
+      setText("");
+      setEditingId(null);
+      setReplyTo(null);
+      setTyping(false);
+      setPending((current) => {
+        current.forEach(
+          (attachment) => attachment.previewUrl && URL.revokeObjectURL(attachment.previewUrl),
+        );
+        return [];
+      });
+      return;
+    }
+
     socket.emit("chat:thread:join", {
       threadId: activeId,
       user: currentUser,
@@ -186,7 +281,9 @@ function ChatPage() {
     setReplyTo(null);
     setTyping(false);
     setPending((current) => {
-      current.forEach((attachment) => attachment.previewUrl && URL.revokeObjectURL(attachment.previewUrl));
+      current.forEach(
+        (attachment) => attachment.previewUrl && URL.revokeObjectURL(attachment.previewUrl),
+      );
       return [];
     });
   }, [activeId, authLoading, currentUser, socket]);
@@ -201,17 +298,19 @@ function ChatPage() {
 
   const onPickFiles = (files: FileList | null, kind: "file" | "image") => {
     if (!files?.length) return;
-    const next: ChatAttachment[] = Array.from(files).slice(0, 6).map((file) => {
-      const isImage = kind === "image" || file.type.startsWith("image/");
-      const previewUrl = isImage ? URL.createObjectURL(file) : undefined;
-      return {
-        id: crypto.randomUUID(),
-        kind: isImage ? "image" : "file",
-        name: file.name,
-        size: file.size,
-        previewUrl,
-      };
-    });
+    const next: ChatAttachment[] = Array.from(files)
+      .slice(0, 6)
+      .map((file) => {
+        const isImage = kind === "image" || file.type.startsWith("image/");
+        const previewUrl = isImage ? URL.createObjectURL(file) : undefined;
+        return {
+          id: crypto.randomUUID(),
+          kind: isImage ? "image" : "file",
+          name: file.name,
+          size: file.size,
+          previewUrl,
+        };
+      });
     setPending((p) => [...p, ...next].slice(0, 6));
   };
 
@@ -252,6 +351,11 @@ function ChatPage() {
     socket.emit("chat:message:delete", { threadId: activeId, messageId: id, user: currentUser });
 
   const send = () => {
+    if (activeId === AI_ASSISTANT_THREAD.id) {
+      navigate({ to: "/ai-chat" });
+      return;
+    }
+
     const trimmed = text.trim();
     if (!trimmed && pending.length === 0) return;
 
@@ -295,7 +399,10 @@ function ChatPage() {
           },
           body: JSON.stringify({
             messages: [
-              { role: "system", content: "You are a concise assistant for a campus marketplace chat." },
+              {
+                role: "system",
+                content: "You are a concise assistant for a campus marketplace chat.",
+              },
               { role: "user", content: trimmed },
             ],
           }),
@@ -330,12 +437,17 @@ function ChatPage() {
       <main className="mx-auto w-full max-w-7xl flex-1 px-0 py-0 sm:px-4 sm:py-6 lg:px-8">
         <div className="grid h-[calc(100vh-4rem)] overflow-hidden border border-border bg-card sm:h-[calc(100vh-7rem)] sm:rounded-3xl md:grid-cols-[320px_1fr]">
           {/* Sidebar */}
-          <aside className={cn("flex flex-col border-r border-border", showThread && "hidden md:flex")}>
+          <aside
+            className={cn("flex flex-col border-r border-border", showThread && "hidden md:flex")}
+          >
             <div className="border-b border-border p-4">
               <h2 className="text-lg font-semibold">Messages</h2>
               <div className="mt-3 flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2">
                 <Search className="h-4 w-4 text-muted-foreground" />
-                <input placeholder="Search conversations" className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
+                <input
+                  placeholder="Search conversations"
+                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                />
               </div>
             </div>
             <ul className="flex-1 overflow-y-auto">
@@ -348,7 +460,7 @@ function ChatPage() {
                 <li key={c.id}>
                   <button
                     onClick={() => {
-                      if ((c as any).isBot) {
+                      if (c.isBot) {
                         navigate({ to: "/ai-chat" });
                       } else {
                         setActiveId(c.id);
@@ -357,23 +469,27 @@ function ChatPage() {
                     }}
                     className={cn(
                       "flex w-full items-center gap-3 border-b border-border/60 p-4 text-left transition hover:bg-secondary/40",
-                      c.id === activeId && !((c as any).isBot) && "bg-secondary/60",
+                      c.id === activeId && !c.isBot && "bg-secondary/60",
                     )}
                   >
                     <div className="relative">
                       <img src={c.avatar} alt="" className="h-11 w-11 rounded-full" />
-                      {c.online && <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-success ring-2 ring-card" />}
+                      {c.online && (
+                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-success ring-2 ring-card" />
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between">
                         <span className="truncate text-sm font-semibold flex items-center gap-2">
-                          {(c as any).isBot && <Bot className="h-4 w-4 text-blue-500" />}
+                          {c.isBot && <Bot className="h-4 w-4 text-blue-500" />}
                           {c.name}
                         </span>
                         <span className="text-[10px] text-muted-foreground">{c.time || ""}</span>
                       </div>
                       <div className="text-[11px] text-primary">{c.product}</div>
-                      <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{c.lastMsg || "No messages yet"}</div>
+                      <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                        {c.lastMsg || "No messages yet"}
+                      </div>
                     </div>
                     {c.unread > 0 && (
                       <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
@@ -394,20 +510,35 @@ function ChatPage() {
               </button>
               <div className="relative">
                 <img src={active.avatar} alt="" className="h-10 w-10 rounded-full" />
-                {active.online && <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-success ring-2 ring-card" />}
+                {active.online && (
+                  <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-success ring-2 ring-card" />
+                )}
               </div>
               <div className="flex-1">
                 <div className="text-sm font-semibold">{active.name}</div>
-                <div className="text-xs text-muted-foreground">{active.online ? "Online · About " + active.product : "Last seen recently"}</div>
+                <div className="text-xs text-muted-foreground">
+                  {active.online ? "Online · About " + active.product : "Last seen recently"}
+                </div>
               </div>
-              <Button variant="ghost" size="icon"><Phone className="h-4 w-4" /></Button>
-              <Button variant="ghost" size="icon"><Video className="h-4 w-4" /></Button>
-              <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon">
+                <Phone className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon">
+                <Video className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
             </header>
 
-            <div ref={scrollContainerRef} className="flex-1 space-y-3 overflow-y-auto bg-background/40 p-5">
+            <div
+              ref={scrollContainerRef}
+              className="flex-1 space-y-3 overflow-y-auto bg-background/40 p-5"
+            >
               <div className="mx-auto max-w-md rounded-2xl border border-dashed border-border bg-card p-3 text-center text-xs text-muted-foreground">
-                You're chatting about <span className="font-semibold text-foreground">{active.product}</span>. Stay safe — meet only on campus.
+                You're chatting about{" "}
+                <span className="font-semibold text-foreground">{active.product}</span>. Stay safe —
+                meet only on campus.
               </div>
               {messages.map((m, i) => {
                 const isMe = m.from === "me" || m.from === currentUser.id;
@@ -520,8 +651,18 @@ function ChatPage() {
                               isMe ? "text-primary-foreground/90" : "text-muted-foreground",
                             )}
                           >
-                            <div className={cn("mb-0.5 text-[11px] font-semibold", isMe ? "opacity-90" : "text-foreground")}>
-                              Replying to {m.replyTo.from === "me" || m.replyTo.from === currentUser.id ? "you" : m.replyTo.from === "ai" ? AI_NAME : active.name}
+                            <div
+                              className={cn(
+                                "mb-0.5 text-[11px] font-semibold",
+                                isMe ? "opacity-90" : "text-foreground",
+                              )}
+                            >
+                              Replying to{" "}
+                              {m.replyTo.from === "me" || m.replyTo.from === currentUser.id
+                                ? "you"
+                                : m.replyTo.from === "ai"
+                                  ? AI_NAME
+                                  : active.name}
                             </div>
                             <div className="line-clamp-2">{reply?.text ?? m.replyTo.text}</div>
                           </div>
@@ -538,13 +679,19 @@ function ChatPage() {
                                 )}
                               >
                                 {a.kind === "image" && a.previewUrl ? (
-                                  <img src={a.previewUrl} alt={a.name} className="max-h-56 w-full object-cover" />
+                                  <img
+                                    src={a.previewUrl}
+                                    alt={a.name}
+                                    className="max-h-56 w-full object-cover"
+                                  />
                                 ) : (
                                   <div className="flex items-center gap-3 p-3">
                                     <Paperclip className="h-4 w-4 opacity-80" />
                                     <div className="min-w-0 flex-1">
                                       <div className="truncate text-xs font-medium">{a.name}</div>
-                                      <div className="text-[11px] opacity-70">{Math.max(1, Math.round(a.size / 1024))} KB</div>
+                                      <div className="text-[11px] opacity-70">
+                                        {Math.max(1, Math.round(a.size / 1024))} KB
+                                      </div>
                                     </div>
                                   </div>
                                 )}
@@ -553,10 +700,17 @@ function ChatPage() {
                           </div>
                         ) : null}
 
-                        {m.text ? <div className="whitespace-pre-wrap break-words">{m.text}</div> : null}
+                        {m.text ? (
+                          <div className="whitespace-pre-wrap break-words">{m.text}</div>
+                        ) : null}
 
                         {m.reactions && Object.keys(m.reactions).length ? (
-                          <div className={cn("mt-2 flex flex-wrap gap-1.5", isMe ? "justify-end" : "justify-start")}>
+                          <div
+                            className={cn(
+                              "mt-2 flex flex-wrap gap-1.5",
+                              isMe ? "justify-end" : "justify-start",
+                            )}
+                          >
                             {Object.entries(m.reactions).map(([emoji, meta]) => (
                               <button
                                 key={emoji}
@@ -564,7 +718,9 @@ function ChatPage() {
                                 onClick={() => toggleReaction(m.id, emoji)}
                                 className={cn(
                                   "inline-flex items-center gap-1 rounded-full border border-border/50 bg-background/20 px-2 py-1 text-[11px] transition",
-                                  meta.mine ? "border-primary/40 bg-primary/10" : "hover:bg-secondary/40",
+                                  meta.mine
+                                    ? "border-primary/40 bg-primary/10"
+                                    : "hover:bg-secondary/40",
                                 )}
                               >
                                 <span className="text-sm leading-none">{emoji}</span>
@@ -583,7 +739,11 @@ function ChatPage() {
 
               {typing ? (
                 <div className="flex items-end gap-2">
-                  <img src={active.avatar} alt="" className="hidden h-7 w-7 rounded-full md:block" />
+                  <img
+                    src={active.avatar}
+                    alt=""
+                    className="hidden h-7 w-7 rounded-full md:block"
+                  />
                   <div className="rounded-2xl border border-border bg-card px-4 py-3 text-sm shadow-soft">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs text-muted-foreground">{active.name} is typing</span>
@@ -609,11 +769,17 @@ function ChatPage() {
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                   {["Today, 5 PM", "Tomorrow, 11 AM", "Sat, 2 PM", "Custom…"].map((t) => (
-                    <button key={t} className="rounded-lg border border-border bg-background px-3 py-2 text-left hover:bg-secondary">{t}</button>
+                    <button
+                      key={t}
+                      className="rounded-lg border border-border bg-background px-3 py-2 text-left hover:bg-secondary"
+                    >
+                      {t}
+                    </button>
                   ))}
                 </div>
                 <div className="mt-3 flex items-center gap-2 rounded-lg bg-secondary/60 p-2 text-xs">
-                  <MapPin className="h-3.5 w-3.5 text-foreground" /> Suggested: Central Library entrance
+                  <MapPin className="h-3.5 w-3.5 text-foreground" /> Suggested: Central Library
+                  entrance
                 </div>
               </div>
 
@@ -631,11 +797,21 @@ function ChatPage() {
                 <div className="mb-2 flex items-center justify-between rounded-2xl border border-border bg-card px-3 py-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 text-xs font-semibold">
-                      {editingId ? <Pencil className="h-3.5 w-3.5 text-foreground" /> : <Reply className="h-3.5 w-3.5 text-foreground" />}
-                      <span>{editingId ? "Editing message" : `Replying to ${replyTo?.from === "me" ? "you" : active.name}`}</span>
+                      {editingId ? (
+                        <Pencil className="h-3.5 w-3.5 text-foreground" />
+                      ) : (
+                        <Reply className="h-3.5 w-3.5 text-foreground" />
+                      )}
+                      <span>
+                        {editingId
+                          ? "Editing message"
+                          : `Replying to ${replyTo?.from === "me" ? "you" : active.name}`}
+                      </span>
                     </div>
                     {!editingId ? (
-                      <div className="mt-1 line-clamp-1 text-xs text-muted-foreground">{replyTo?.text}</div>
+                      <div className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                        {replyTo?.text}
+                      </div>
                     ) : null}
                   </div>
                   <Button
@@ -712,7 +888,13 @@ function ChatPage() {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" type="button" aria-label="Add attachment" className="rounded-2xl">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      type="button"
+                      aria-label="Add attachment"
+                      className="rounded-2xl"
+                    >
                       <Paperclip className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -758,7 +940,13 @@ function ChatPage() {
 
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" type="button" aria-label="Emoji picker" className="rounded-2xl">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      type="button"
+                      aria-label="Emoji picker"
+                      className="rounded-2xl"
+                    >
                       <Smile className="h-4 w-4" />
                     </Button>
                   </PopoverTrigger>
@@ -780,11 +968,21 @@ function ChatPage() {
                   </PopoverContent>
                 </Popover>
 
-                <Button variant="ghost" size="icon" type="button" aria-label="Voice message" className="rounded-2xl">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  aria-label="Voice message"
+                  className="rounded-2xl"
+                >
                   <Mic className="h-4 w-4" />
                 </Button>
 
-                <motion.div whileTap={{ scale: 0.96 }} whileHover={{ y: -1 }} transition={{ type: "spring", stiffness: 500, damping: 30 }}>
+                <motion.div
+                  whileTap={{ scale: 0.96 }}
+                  whileHover={{ y: -1 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                >
                   <Button
                     size="icon"
                     type="submit"
@@ -806,7 +1004,14 @@ function ChatPage() {
 function FolderIcon() {
   // minimal inline icon to avoid extra lucide import weight for a single menu row
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden className="text-muted-foreground">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      className="text-muted-foreground"
+    >
       <path
         d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2H18.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5v-9Z"
         stroke="currentColor"

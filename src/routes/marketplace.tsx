@@ -7,7 +7,8 @@ import { Footer } from "@/components/footer";
 import { ProductCard } from "@/components/product-card";
 import { CategoryIcon } from "@/components/category-icon";
 import { Button } from "@/components/ui/button";
-import { products, categories, type Category } from "@/lib/mock-data";
+import { type Category } from "@/lib/mock-data";
+import { categorySummaries, useCatalog } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 import { CAMPUSES } from "@/lib/campus";
 
@@ -22,13 +23,18 @@ export const Route = createFileRoute("/marketplace")({
 
 function MarketplacePage() {
   const search = Route.useSearch();
+  const { products } = useCatalog();
+  const categories = useMemo(() => categorySummaries(products), [products]);
+
   const [query, setQuery] = useState("");
-  const [activeCat, setActiveCat] = useState<Category | null>((search.category as Category) ?? null);
+  const [activeCat, setActiveCat] = useState<Category | null>(
+    (search.category as Category) ?? null,
+  );
   const [conditions, setConditions] = useState<string[]>([]);
   const [maxPrice, setMaxPrice] = useState<number>(60000);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [sort, setSort] = useState<"new" | "low" | "high">("new");
-  
+
   const [buyRent, setBuyRent] = useState<"all" | "buy" | "rent">("all");
   const [departments, setDepartments] = useState<string[]>([]);
   const [availabilities, setAvailabilities] = useState<string[]>(["Available"]);
@@ -36,22 +42,74 @@ function MarketplacePage() {
   const [negotiable, setNegotiable] = useState(false);
   const [selectedCampuses, setSelectedCampuses] = useState<string[]>([]);
 
+  const normalizedConditions = useMemo(
+    () => conditions.map((c) => (c === "Used" ? "Fair" : c)),
+    [conditions],
+  );
+
   const filtered = useMemo(() => {
     let list = products.filter((p) => {
       if (activeCat && p.category !== activeCat) return false;
-      if (conditions.length && !conditions.includes(p.condition)) return false;
+      if (normalizedConditions.length && !normalizedConditions.includes(p.condition)) return false;
       if (p.price > maxPrice) return false;
       if (verifiedOnly && !p.seller.verified) return false;
       if (query && !p.title.toLowerCase().includes(query.toLowerCase())) return false;
+
+      if (buyRent === "buy" && p.forRent) return false;
+      if (buyRent === "rent" && !p.forRent) return false;
+
+      if (departments.length) {
+        const dept = p.department ?? "";
+        if (!dept || !departments.includes(dept)) return false;
+      }
+
+      const availability = p.availability ?? "Available";
+      if (availabilities.length && !availabilities.includes(availability)) return false;
+
+      if (recentlyAdded) {
+        const pa = p.postedAgo.toLowerCase();
+        const looksRecent =
+          pa.includes("min ago") ||
+          pa === "just now" ||
+          pa.includes("hour") ||
+          pa.includes("hours ago");
+        if (!looksRecent) return false;
+      }
+
+      if (negotiable && !p.negotiable) return false;
+
+      if (selectedCampuses.length) {
+        const hay = `${p.seller.college} ${p.pickupLocation ?? ""}`.toLowerCase();
+        const matchCampus = selectedCampuses.some((c) => hay.includes(c.toLowerCase()));
+        if (!matchCampus) return false;
+      }
+
       return true;
     });
     if (sort === "low") list = [...list].sort((a, b) => a.price - b.price);
     if (sort === "high") list = [...list].sort((a, b) => b.price - a.price);
     return list;
-  }, [activeCat, conditions, maxPrice, verifiedOnly, query, sort, buyRent, departments, availabilities, recentlyAdded, negotiable, selectedCampuses]);
+  }, [
+    activeCat,
+    availabilities,
+    buyRent,
+    departments,
+    maxPrice,
+    negotiable,
+    normalizedConditions,
+    products,
+    query,
+    recentlyAdded,
+    selectedCampuses,
+    sort,
+    verifiedOnly,
+  ]);
 
-  const toggleArrayItem = (setter: React.Dispatch<React.SetStateAction<string[]>>, item: string) => {
-    setter((prev) => prev.includes(item) ? prev.filter((x) => x !== item) : [...prev, item]);
+  const toggleArrayItem = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    item: string,
+  ) => {
+    setter((prev) => (prev.includes(item) ? prev.filter((x) => x !== item) : [...prev, item]));
   };
 
   return (
@@ -60,8 +118,12 @@ function MarketplacePage() {
       <main className="flex-1">
         <section className="border-b border-border bg-hero-gradient">
           <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-            <h1 className="font-display text-4xl font-semibold italic tracking-tight sm:text-5xl">Marketplace</h1>
-            <p className="mt-2 text-muted-foreground">Discover what your campus is buying, selling and renting today.</p>
+            <h1 className="font-display text-4xl font-semibold italic tracking-tight sm:text-5xl">
+              Marketplace
+            </h1>
+            <p className="mt-2 text-muted-foreground">
+              Discover what your campus is buying, selling and renting today.
+            </p>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <div className="flex flex-1 items-center gap-2 rounded-full border border-border bg-card px-4 py-3 shadow-soft">
@@ -75,7 +137,9 @@ function MarketplacePage() {
               </div>
               <div className="flex gap-2 sm:contents">
                 <button
-                  onClick={() => document.getElementById('mobile-filters')?.classList.toggle('hidden')}
+                  onClick={() =>
+                    document.getElementById("mobile-filters")?.classList.toggle("hidden")
+                  }
                   className="flex flex-1 items-center justify-center gap-2 rounded-full border border-border bg-card px-4 py-3 text-sm font-medium shadow-soft transition hover:bg-secondary lg:hidden"
                 >
                   <SlidersHorizontal className="h-4 w-4" /> Filters
@@ -101,12 +165,28 @@ function MarketplacePage() {
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <SlidersHorizontal className="h-4 w-4" /> Filters
                 </div>
-                {(activeCat || conditions.length > 0 || maxPrice < 60000 || verifiedOnly || buyRent !== "all" || departments.length > 0 || availabilities.length > 1 || recentlyAdded || negotiable || selectedCampuses.length > 0) && (
+                {(activeCat ||
+                  conditions.length > 0 ||
+                  maxPrice < 60000 ||
+                  verifiedOnly ||
+                  buyRent !== "all" ||
+                  departments.length > 0 ||
+                  availabilities.length > 1 ||
+                  recentlyAdded ||
+                  negotiable ||
+                  selectedCampuses.length > 0) && (
                   <button
                     onClick={() => {
-                      setActiveCat(null); setConditions([]); setMaxPrice(60000); setVerifiedOnly(false);
-                      setBuyRent("all"); setDepartments([]); setAvailabilities(["Available"]);
-                      setRecentlyAdded(false); setNegotiable(false); setSelectedCampuses([]);
+                      setActiveCat(null);
+                      setConditions([]);
+                      setMaxPrice(60000);
+                      setVerifiedOnly(false);
+                      setBuyRent("all");
+                      setDepartments([]);
+                      setAvailabilities(["Available"]);
+                      setRecentlyAdded(false);
+                      setNegotiable(false);
+                      setSelectedCampuses([]);
                     }}
                     className="text-xs font-medium text-primary hover:underline"
                   >
@@ -124,7 +204,8 @@ function MarketplacePage() {
                       !activeCat ? "bg-secondary font-medium" : "hover:bg-secondary/60",
                     )}
                   >
-                    <span>All</span><span className="text-xs text-muted-foreground">{products.length}</span>
+                    <span>All</span>
+                    <span className="text-xs text-muted-foreground">{products.length}</span>
                   </button>
                   {categories.map((c) => (
                     <button
@@ -135,8 +216,8 @@ function MarketplacePage() {
                         activeCat === c.name ? "bg-secondary font-medium" : "hover:bg-secondary/60",
                       )}
                     >
-                        <span className="flex items-center gap-2">
-                          <span className="grid h-7 w-7 place-items-center rounded-lg bg-secondary text-foreground transition group-hover:text-primary">
+                      <span className="flex items-center gap-2">
+                        <span className="grid h-7 w-7 place-items-center rounded-lg bg-secondary text-foreground transition group-hover:text-primary">
                           <CategoryIcon category={c.name} size={16} animated={false} />
                         </span>
                         {c.name}
@@ -152,10 +233,12 @@ function MarketplacePage() {
                   {["all", "buy", "rent"].map((t) => (
                     <button
                       key={t}
-                      onClick={() => setBuyRent(t as any)}
+                      onClick={() => setBuyRent(t as "all" | "buy" | "rent")}
                       className={cn(
                         "flex-1 rounded-md py-1.5 text-xs font-medium capitalize transition",
-                        buyRent === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                        buyRent === t
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground",
                       )}
                     >
                       {t}
@@ -166,17 +249,32 @@ function MarketplacePage() {
 
               <FilterBlock title={`Price range · ₹0 - ₹${maxPrice.toLocaleString("en-IN")}`}>
                 <input
-                  type="range" min={100} max={60000} step={100}
+                  type="range"
+                  min={100}
+                  max={60000}
+                  step={100}
                   value={maxPrice}
                   onChange={(e) => setMaxPrice(Number(e.target.value))}
                   className="w-full accent-primary"
                 />
                 <div className="mt-4 flex items-center gap-2 text-sm">
                   <label className="flex cursor-pointer items-center gap-2">
-                    <div className={cn("grid h-4 w-4 place-items-center rounded border transition", negotiable ? "border-primary bg-primary text-primary-foreground" : "border-input")}>
+                    <div
+                      className={cn(
+                        "grid h-4 w-4 place-items-center rounded border transition",
+                        negotiable
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-input",
+                      )}
+                    >
                       {negotiable && <Check className="h-3 w-3" />}
                     </div>
-                    <input type="checkbox" checked={negotiable} onChange={(e) => setNegotiable(e.target.checked)} className="hidden" />
+                    <input
+                      type="checkbox"
+                      checked={negotiable}
+                      onChange={(e) => setNegotiable(e.target.checked)}
+                      className="hidden"
+                    />
                     Negotiable only
                   </label>
                 </div>
@@ -184,7 +282,7 @@ function MarketplacePage() {
 
               <FilterBlock title="Condition">
                 <div className="flex flex-wrap gap-2">
-                  {["New", "Like New", "Good", "Used"].map((c) => (
+                  {["New", "Like New", "Good", "Fair"].map((c) => (
                     <button
                       key={c}
                       onClick={() => toggleArrayItem(setConditions, c)}
@@ -205,24 +303,48 @@ function MarketplacePage() {
                 <div className="space-y-2">
                   {["CSE", "Mechanical", "Civil", "ECE", "MBA"].map((d) => (
                     <label key={d} className="flex cursor-pointer items-center gap-2 text-sm">
-                      <div className={cn("grid h-4 w-4 place-items-center rounded border transition", departments.includes(d) ? "border-primary bg-primary text-primary-foreground" : "border-input")}>
+                      <div
+                        className={cn(
+                          "grid h-4 w-4 place-items-center rounded border transition",
+                          departments.includes(d)
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-input",
+                        )}
+                      >
                         {departments.includes(d) && <Check className="h-3 w-3" />}
                       </div>
-                      <input type="checkbox" checked={departments.includes(d)} onChange={() => toggleArrayItem(setDepartments, d)} className="hidden" />
+                      <input
+                        type="checkbox"
+                        checked={departments.includes(d)}
+                        onChange={() => toggleArrayItem(setDepartments, d)}
+                        className="hidden"
+                      />
                       {d}
                     </label>
                   ))}
                 </div>
               </FilterBlock>
-              
+
               <FilterBlock title="Availability">
                 <div className="space-y-2">
                   {["Available", "Sold", "Reserved"].map((a) => (
                     <label key={a} className="flex cursor-pointer items-center gap-2 text-sm">
-                      <div className={cn("grid h-4 w-4 place-items-center rounded border transition", availabilities.includes(a) ? "border-primary bg-primary text-primary-foreground" : "border-input")}>
+                      <div
+                        className={cn(
+                          "grid h-4 w-4 place-items-center rounded border transition",
+                          availabilities.includes(a)
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-input",
+                        )}
+                      >
                         {availabilities.includes(a) && <Check className="h-3 w-3" />}
                       </div>
-                      <input type="checkbox" checked={availabilities.includes(a)} onChange={() => toggleArrayItem(setAvailabilities, a)} className="hidden" />
+                      <input
+                        type="checkbox"
+                        checked={availabilities.includes(a)}
+                        onChange={() => toggleArrayItem(setAvailabilities, a)}
+                        className="hidden"
+                      />
                       {a}
                     </label>
                   ))}
@@ -233,10 +355,22 @@ function MarketplacePage() {
                 <div className="space-y-2">
                   {CAMPUSES.map((campus) => (
                     <label key={campus} className="flex cursor-pointer items-center gap-2 text-sm">
-                      <div className={cn("grid h-4 w-4 place-items-center rounded border transition", selectedCampuses.includes(campus) ? "border-primary bg-primary text-primary-foreground" : "border-input")}>
+                      <div
+                        className={cn(
+                          "grid h-4 w-4 place-items-center rounded border transition",
+                          selectedCampuses.includes(campus)
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-input",
+                        )}
+                      >
                         {selectedCampuses.includes(campus) && <Check className="h-3 w-3" />}
                       </div>
-                      <input type="checkbox" checked={selectedCampuses.includes(campus)} onChange={() => toggleArrayItem(setSelectedCampuses, campus)} className="hidden" />
+                      <input
+                        type="checkbox"
+                        checked={selectedCampuses.includes(campus)}
+                        onChange={() => toggleArrayItem(setSelectedCampuses, campus)}
+                        className="hidden"
+                      />
                       <MapPin className="h-3 w-3 text-muted-foreground" />
                       {campus}
                     </label>
@@ -247,17 +381,41 @@ function MarketplacePage() {
               <FilterBlock title="Trust & Status" defaultOpen={false}>
                 <div className="space-y-3">
                   <label className="flex cursor-pointer items-center gap-2 text-sm">
-                    <div className={cn("grid h-4 w-4 place-items-center rounded border transition", verifiedOnly ? "border-primary bg-primary text-primary-foreground" : "border-input")}>
+                    <div
+                      className={cn(
+                        "grid h-4 w-4 place-items-center rounded border transition",
+                        verifiedOnly
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-input",
+                      )}
+                    >
                       {verifiedOnly && <Check className="h-3 w-3" />}
                     </div>
-                    <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} className="hidden" />
+                    <input
+                      type="checkbox"
+                      checked={verifiedOnly}
+                      onChange={(e) => setVerifiedOnly(e.target.checked)}
+                      className="hidden"
+                    />
                     Verified sellers only
                   </label>
                   <label className="flex cursor-pointer items-center gap-2 text-sm">
-                    <div className={cn("grid h-4 w-4 place-items-center rounded border transition", recentlyAdded ? "border-primary bg-primary text-primary-foreground" : "border-input")}>
+                    <div
+                      className={cn(
+                        "grid h-4 w-4 place-items-center rounded border transition",
+                        recentlyAdded
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-input",
+                      )}
+                    >
                       {recentlyAdded && <Check className="h-3 w-3" />}
                     </div>
-                    <input type="checkbox" checked={recentlyAdded} onChange={(e) => setRecentlyAdded(e.target.checked)} className="hidden" />
+                    <input
+                      type="checkbox"
+                      checked={recentlyAdded}
+                      onChange={(e) => setRecentlyAdded(e.target.checked)}
+                      className="hidden"
+                    />
                     Recently added
                   </label>
                 </div>
@@ -268,13 +426,25 @@ function MarketplacePage() {
           <section>
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Showing <span className="font-semibold text-foreground">{filtered.length}</span> listings
-                {activeCat && <> in <span className="font-semibold text-foreground">{activeCat}</span></>}
+                Showing <span className="font-semibold text-foreground">{filtered.length}</span>{" "}
+                listings
+                {activeCat && (
+                  <>
+                    {" "}
+                    in <span className="font-semibold text-foreground">{activeCat}</span>
+                  </>
+                )}
               </p>
               {(activeCat || conditions.length || verifiedOnly || query) && (
                 <Button
-                  variant="ghost" size="sm"
-                  onClick={() => { setActiveCat(null); setConditions([]); setVerifiedOnly(false); setQuery(""); }}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setActiveCat(null);
+                    setConditions([]);
+                    setVerifiedOnly(false);
+                    setQuery("");
+                  }}
                 >
                   <X className="h-4 w-4" /> Clear
                 </Button>
@@ -288,11 +458,13 @@ function MarketplacePage() {
                 layout
                 className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
               >
-                {filtered.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+                {filtered.map((p, i) => (
+                  <ProductCard key={p.id} product={p} index={i} />
+                ))}
               </motion.div>
             )}
 
-            <Pagination />
+            <ListingCountFooter total={filtered.length} />
           </section>
         </div>
       </main>
@@ -301,16 +473,29 @@ function MarketplacePage() {
   );
 }
 
-function FilterBlock({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+function FilterBlock({
+  title,
+  children,
+  defaultOpen = true,
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="border-b border-border/60 py-3 last:border-0 last:pb-0">
-      <button 
+      <button
         onClick={() => setOpen(!open)}
         className="flex w-full items-center justify-between text-sm font-semibold text-foreground hover:text-primary transition-colors"
       >
         {title}
-        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", open && "rotate-180")} />
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 text-muted-foreground transition-transform duration-200",
+            open && "rotate-180",
+          )}
+        />
       </button>
       <AnimatePresence initial={false}>
         {open && (
@@ -336,27 +521,22 @@ function EmptyState() {
         <Search className="h-6 w-6" />
       </div>
       <h3 className="mt-4 text-lg font-semibold">No listings found</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Try adjusting your filters or search terms.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Try adjusting your filters or search terms.
+      </p>
     </div>
   );
 }
 
-function Pagination() {
+function ListingCountFooter({ total }: { total: number }) {
   return (
-    <div className="mt-10 flex items-center justify-center gap-1">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          className={cn(
-            "h-9 w-9 rounded-full text-sm font-medium transition",
-            n === 1 ? "bg-foreground text-background" : "hover:bg-secondary",
-          )}
-        >
-          {n}
-        </button>
-      ))}
-      <span className="px-2 text-muted-foreground">…</span>
-      <button className="h-9 w-9 rounded-full text-sm font-medium hover:bg-secondary">12</button>
-    </div>
+    <p className="mt-10 text-center text-sm text-muted-foreground">
+      Showing {total} listing{total === 1 ? "" : "s"}.
+      {total > 48 ? (
+        <span className="ml-1">
+          Consider narrowing filters — classic paging can be added when the catalog grows further.
+        </span>
+      ) : null}
+    </p>
   );
 }

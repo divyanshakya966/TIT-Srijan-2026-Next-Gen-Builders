@@ -41,7 +41,10 @@ export function CategoryIcon({
   return (
     <Comp
       {...(animated
-        ? { whileHover: { scale: 1.06 }, transition: { type: "spring", stiffness: 420, damping: 28 } }
+        ? {
+            whileHover: { scale: 1.06 },
+            transition: { type: "spring", stiffness: 420, damping: 28 },
+          }
         : {})}
       className={cn("inline-flex items-center justify-center text-foreground", className)}
     >
@@ -49,4 +52,3 @@ export function CategoryIcon({
     </Comp>
   );
 }
-

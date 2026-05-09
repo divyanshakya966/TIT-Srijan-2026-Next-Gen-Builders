@@ -34,4 +34,3 @@ export function BackToTop() {
     </AnimatePresence>
   );
 }
-

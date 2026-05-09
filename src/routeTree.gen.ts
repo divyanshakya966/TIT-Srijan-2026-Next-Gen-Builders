@@ -10,17 +10,24 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as PeopleRouteImport } from './routes/people'
 import { Route as MarketplaceRouteImport } from './routes/marketplace'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as AiChatRouteImport } from './routes/ai-chat'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProfileUserIdRouteImport } from './routes/profile.$userId'
 import { Route as ProductIdRouteImport } from './routes/product.$id'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PeopleRoute = PeopleRouteImport.update({
+  id: '/people',
+  path: '/people',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MarketplaceRoute = MarketplaceRouteImport.update({
@@ -53,6 +60,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileUserIdRoute = ProfileUserIdRouteImport.update({
+  id: '/profile/$userId',
+  path: '/profile/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProductIdRoute = ProductIdRouteImport.update({
   id: '/product/$id',
   path: '/product/$id',
@@ -66,8 +78,10 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/marketplace': typeof MarketplaceRoute
+  '/people': typeof PeopleRoute
   '/signup': typeof SignupRoute
   '/product/$id': typeof ProductIdRoute
+  '/profile/$userId': typeof ProfileUserIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -76,8 +90,10 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/marketplace': typeof MarketplaceRoute
+  '/people': typeof PeopleRoute
   '/signup': typeof SignupRoute
   '/product/$id': typeof ProductIdRoute
+  '/profile/$userId': typeof ProfileUserIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -87,8 +103,10 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/marketplace': typeof MarketplaceRoute
+  '/people': typeof PeopleRoute
   '/signup': typeof SignupRoute
   '/product/$id': typeof ProductIdRoute
+  '/profile/$userId': typeof ProfileUserIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -99,8 +117,10 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/marketplace'
+    | '/people'
     | '/signup'
     | '/product/$id'
+    | '/profile/$userId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -109,8 +129,10 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/marketplace'
+    | '/people'
     | '/signup'
     | '/product/$id'
+    | '/profile/$userId'
   id:
     | '__root__'
     | '/'
@@ -119,8 +141,10 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/marketplace'
+    | '/people'
     | '/signup'
     | '/product/$id'
+    | '/profile/$userId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -130,8 +154,10 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   MarketplaceRoute: typeof MarketplaceRoute
+  PeopleRoute: typeof PeopleRoute
   SignupRoute: typeof SignupRoute
   ProductIdRoute: typeof ProductIdRoute
+  ProfileUserIdRoute: typeof ProfileUserIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -141,6 +167,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/people': {
+      id: '/people'
+      path: '/people'
+      fullPath: '/people'
+      preLoaderRoute: typeof PeopleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/marketplace': {
@@ -185,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile/$userId': {
+      id: '/profile/$userId'
+      path: '/profile/$userId'
+      fullPath: '/profile/$userId'
+      preLoaderRoute: typeof ProfileUserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/product/$id': {
       id: '/product/$id'
       path: '/product/$id'
@@ -202,8 +242,10 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   MarketplaceRoute: MarketplaceRoute,
+  PeopleRoute: PeopleRoute,
   SignupRoute: SignupRoute,
   ProductIdRoute: ProductIdRoute,
+  ProfileUserIdRoute: ProfileUserIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

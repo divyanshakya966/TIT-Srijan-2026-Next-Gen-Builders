@@ -1,9 +1,22 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Sparkles, ShieldCheck, Zap, Users, ArrowRight, Search,
-  BadgeCheck, MessageCircle, Bot, TrendingUp, Star,
-  HandHeart, Clock, MapPin, GraduationCap, IndianRupee,
+  Sparkles,
+  ShieldCheck,
+  Zap,
+  Users,
+  ArrowRight,
+  Search,
+  BadgeCheck,
+  MessageCircle,
+  Bot,
+  TrendingUp,
+  Star,
+  HandHeart,
+  Clock,
+  MapPin,
+  GraduationCap,
+  IndianRupee,
 } from "lucide-react";
 import { useState } from "react";
 import { Navbar } from "@/components/navbar";
@@ -11,7 +24,9 @@ import { Footer } from "@/components/footer";
 import { ProductCard } from "@/components/product-card";
 import { CategoryIcon } from "@/components/category-icon";
 import { Button } from "@/components/ui/button";
-import { products, categories, testimonials, itemRequests, type ItemRequest } from "@/lib/mock-data";
+import { testimonials, type ItemRequest } from "@/lib/mock-data";
+import { categorySummaries, useCatalog } from "@/lib/catalog";
+import { useCampusItemRequests } from "@/lib/item-requests-catalog";
 import { RequestItemModal } from "@/components/request-item-modal";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -43,6 +58,8 @@ function Landing() {
 }
 
 function Hero({ onRequestItem }: { onRequestItem: () => void }) {
+  const { products } = useCatalog();
+
   return (
     <section className="relative overflow-hidden bg-hero-gradient">
       <div className="pointer-events-none absolute inset-0">
@@ -72,7 +89,10 @@ function Hero({ onRequestItem }: { onRequestItem: () => void }) {
           </p>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link to="/marketplace">
-              <Button size="lg" className="rounded-full bg-brand-gradient px-7 text-primary-foreground shadow-elegant hover:opacity-90">
+              <Button
+                size="lg"
+                className="rounded-full bg-brand-gradient px-7 text-primary-foreground shadow-elegant hover:opacity-90"
+              >
                 Explore marketplace <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
@@ -100,7 +120,9 @@ function Hero({ onRequestItem }: { onRequestItem: () => void }) {
               placeholder="Search for books, gadgets, calculators…"
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
-            <kbd className="hidden rounded-md border border-border bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground sm:block">⌘K</kbd>
+            <kbd className="hidden rounded-md border border-border bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground sm:block">
+              ⌘K
+            </kbd>
           </div>
         </motion.div>
 
@@ -114,7 +136,12 @@ function Hero({ onRequestItem }: { onRequestItem: () => void }) {
             <motion.div
               key={p.id}
               animate={{ y: [0, -8, 0] }}
-              transition={{ duration: 4 + i * 0.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.2 }}
+              transition={{
+                duration: 4 + i * 0.4,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: i * 0.2,
+              }}
               className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft"
             >
               <img src={p.image} alt={p.title} className="aspect-square w-full object-cover" />
@@ -142,7 +169,9 @@ function Stats() {
       <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-12 sm:px-6 lg:grid-cols-4 lg:px-8">
         {stats.map((s) => (
           <div key={s.l} className="text-center">
-            <div className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">{s.v}</div>
+            <div className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+              {s.v}
+            </div>
             <div className="mt-1 text-sm text-muted-foreground">{s.l}</div>
           </div>
         ))}
@@ -152,10 +181,24 @@ function Stats() {
 }
 
 function MarketplacePulse() {
+  const { products } = useCatalog();
+  const listingWord = products.length === 1 ? "listing" : "listings";
   const items = [
-    { t: "47 new listings", d: "in the last 24 hours", icon: TrendingUp },
-    { t: "Fastest sale", d: "Calculator sold in 11 minutes", icon: Zap },
-    { t: "Top activity", d: "MANIT and LNCT this week", icon: Users },
+    {
+      t: `${products.length} campus ${listingWord}`,
+      d: "Demo inventory plus listings synced from Firestore when configured.",
+      icon: TrendingUp,
+    },
+    {
+      t: "Trusted meet-ups",
+      d: "Coordinate pickup on campus via Messages.",
+      icon: Zap,
+    },
+    {
+      t: "Student-first marketplace",
+      d: "Buy, sell, and rent with verified peers.",
+      icon: Users,
+    },
   ];
   return (
     <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
@@ -187,14 +230,21 @@ function MarketplacePulse() {
 }
 
 function Categories() {
+  const { products } = useCatalog();
+  const categories = categorySummaries(products);
   return (
     <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
       <div className="mb-10 flex items-end justify-between">
         <div>
-          <h2 className="font-display text-3xl font-semibold italic tracking-tight sm:text-4xl">Browse categories</h2>
+          <h2 className="font-display text-3xl font-semibold italic tracking-tight sm:text-4xl">
+            Browse categories
+          </h2>
           <p className="mt-2 text-muted-foreground">Find exactly what you need on campus.</p>
         </div>
-        <Link to="/marketplace" className="hidden text-sm font-medium text-primary hover:underline sm:block">
+        <Link
+          to="/marketplace"
+          className="hidden text-sm font-medium text-primary hover:underline sm:block"
+        >
           View all →
         </Link>
       </div>
@@ -213,7 +263,10 @@ function Categories() {
               className="group flex h-full flex-col items-start gap-3 rounded-2xl border border-border bg-card p-5 transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-elegant"
             >
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-secondary text-foreground transition group-hover:bg-secondary/80 group-hover:text-primary">
-                <CategoryIcon category={c.name} className="opacity-95 transition group-hover:opacity-100" />
+                <CategoryIcon
+                  category={c.name}
+                  className="opacity-95 transition group-hover:opacity-100"
+                />
               </span>
               <div>
                 <div className="text-sm font-semibold">{c.name}</div>
@@ -228,22 +281,29 @@ function Categories() {
 }
 
 function Featured() {
+  const { products } = useCatalog();
   return (
     <section className="relative py-20 overflow-hidden">
       {/* Warm gradient background */}
       <div className="absolute inset-0 bg-gradient-to-b from-amber-50/20 via-background to-amber-50/50 dark:from-amber-950/10 dark:via-background dark:to-amber-950/20" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(59,130,246,0.08),transparent_70%)]" />
-      
+
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-10 flex items-end justify-between">
           <div>
-            <h2 className="font-display text-3xl font-semibold italic tracking-tight sm:text-4xl">Trending on campus</h2>
+            <h2 className="font-display text-3xl font-semibold italic tracking-tight sm:text-4xl">
+              Trending on campus
+            </h2>
             <p className="mt-2 text-muted-foreground">Hand-picked listings from top sellers.</p>
           </div>
-          <Link to="/marketplace" className="text-sm font-medium text-primary hover:underline">View all →</Link>
+          <Link to="/marketplace" className="text-sm font-medium text-primary hover:underline">
+            View all →
+          </Link>
         </div>
         <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
-          {products.slice(0, 8).map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+          {products.slice(0, 8).map((p, i) => (
+            <ProductCard key={p.id} product={p} index={i} />
+          ))}
         </div>
       </div>
     </section>
@@ -251,6 +311,7 @@ function Featured() {
 }
 
 function RequestedByStudents() {
+  const { requests } = useCampusItemRequests();
   const [provideFor, setProvideFor] = useState<ItemRequest | null>(null);
   return (
     <section className="relative py-20 overflow-hidden">
@@ -264,13 +325,22 @@ function RequestedByStudents() {
             <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
               <HandHeart className="h-3 w-3" /> Live requests
             </span>
-            <h2 className="mt-2 font-display text-3xl font-semibold italic tracking-tight sm:text-4xl">Requested by students</h2>
-            <p className="mt-2 text-muted-foreground">Students are looking for these items right now. Can you help?</p>
+            <h2 className="mt-2 font-display text-3xl font-semibold italic tracking-tight sm:text-4xl">
+              Requested by students
+            </h2>
+            <p className="mt-2 text-muted-foreground">
+              Students are looking for these items right now. Can you help?
+            </p>
           </div>
         </div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {itemRequests.map((req, i) => (
-            <RequestCard key={req.id} request={req} index={i} onProvide={() => setProvideFor(req)} />
+          {requests.map((req, i) => (
+            <RequestCard
+              key={req.id}
+              request={req}
+              index={i}
+              onProvide={() => setProvideFor(req)}
+            />
           ))}
         </div>
       </div>
@@ -280,7 +350,15 @@ function RequestedByStudents() {
   );
 }
 
-function RequestCard({ request, index, onProvide }: { request: ItemRequest; index: number; onProvide: () => void }) {
+function RequestCard({
+  request,
+  index,
+  onProvide,
+}: {
+  request: ItemRequest;
+  index: number;
+  onProvide: () => void;
+}) {
   const urgencyColors: Record<string, string> = {
     Urgent: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30",
     High: "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30",
@@ -302,7 +380,12 @@ function RequestCard({ request, index, onProvide }: { request: ItemRequest; inde
 
       {/* Header: urgency + time */}
       <div className="flex items-center justify-between">
-        <span className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", urgencyColors[request.urgency])}>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold",
+            urgencyColors[request.urgency],
+          )}
+        >
           {request.urgency === "Urgent" && "🔥"} {request.urgency}
         </span>
         <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -317,7 +400,8 @@ function RequestCard({ request, index, onProvide }: { request: ItemRequest; inde
       {/* Tags row */}
       <div className="mt-4 flex flex-wrap gap-2">
         <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground">
-          <IndianRupee className="h-3 w-3" /> ₹{request.budgetMin.toLocaleString("en-IN")} - ₹{request.budgetMax.toLocaleString("en-IN")}
+          <IndianRupee className="h-3 w-3" /> ₹{request.budgetMin.toLocaleString("en-IN")} - ₹
+          {request.budgetMax.toLocaleString("en-IN")}
         </span>
         <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground">
           <GraduationCap className="h-3 w-3" /> {request.department}
@@ -328,7 +412,9 @@ function RequestCard({ request, index, onProvide }: { request: ItemRequest; inde
       </div>
 
       {/* Condition */}
-      <div className="mt-3 text-xs text-muted-foreground">Preferred: <span className="font-medium text-foreground">{request.condition}</span></div>
+      <div className="mt-3 text-xs text-muted-foreground">
+        Preferred: <span className="font-medium text-foreground">{request.condition}</span>
+      </div>
 
       {/* Student + CTA */}
       <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
@@ -356,17 +442,21 @@ function RequestCard({ request, index, onProvide }: { request: ItemRequest; inde
 }
 
 function ProvideModal({ request, onClose }: { request: ItemRequest | null; onClose: () => void }) {
+  const navigate = useNavigate();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
 
   const handleSend = async () => {
     if (!message.trim()) return;
     setSending(true);
-    await new Promise((r) => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 400));
     setSending(false);
-    toast.success("Message sent!", { description: `${request?.student.name} will be notified. Check your messages for a reply.` });
+    toast.success("Draft saved", {
+      description: `${request?.student.name} can be reached from Messages — paste your note there to coordinate safely.`,
+    });
     setMessage("");
     onClose();
+    void navigate({ to: "/chat" });
   };
 
   return (
@@ -391,11 +481,15 @@ function ProvideModal({ request, onClose }: { request: ItemRequest | null; onClo
             <div className="p-6">
               <h3 className="text-base font-semibold">Respond to request</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Let <span className="font-medium text-foreground">{request.student.name}</span> know you can provide:
+                Let <span className="font-medium text-foreground">{request.student.name}</span> know
+                you can provide:
               </p>
               <div className="mt-3 rounded-xl border border-border bg-secondary/50 p-3">
                 <div className="text-sm font-medium">{request.itemName}</div>
-                <div className="mt-1 text-xs text-muted-foreground">Budget: ₹{request.budgetMin.toLocaleString("en-IN")} - ₹{request.budgetMax.toLocaleString("en-IN")}</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Budget: ₹{request.budgetMin.toLocaleString("en-IN")} - ₹
+                  {request.budgetMax.toLocaleString("en-IN")}
+                </div>
               </div>
               <textarea
                 value={message}
@@ -405,7 +499,9 @@ function ProvideModal({ request, onClose }: { request: ItemRequest | null; onClo
                 className="mt-4 w-full resize-none rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground"
               />
               <div className="mt-4 flex justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+                <Button variant="ghost" size="sm" onClick={onClose}>
+                  Cancel
+                </Button>
                 <Button
                   size="sm"
                   disabled={!message.trim() || sending}
@@ -413,7 +509,11 @@ function ProvideModal({ request, onClose }: { request: ItemRequest | null; onClo
                   className="rounded-full bg-brand-gradient px-5 text-primary-foreground shadow-soft hover:opacity-90"
                 >
                   {sending ? (
-                    <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-4 w-4 rounded-full border-2 border-primary-foreground border-t-transparent" />
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      className="h-4 w-4 rounded-full border-2 border-primary-foreground border-t-transparent"
+                    />
                   ) : (
                     <>
                       <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
@@ -430,7 +530,6 @@ function ProvideModal({ request, onClose }: { request: ItemRequest | null; onClo
   );
 }
 
-
 function FeaturedDeals() {
   const deals = [
     { t: "Featured campus deals", d: "Best value picks, updated daily", icon: BadgeCheck },
@@ -444,8 +543,12 @@ function FeaturedDeals() {
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-10 flex items-end justify-between">
           <div>
-            <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">Campus highlights</h2>
-            <p className="mt-2 text-muted-foreground">A little extra confidence before you hit “Message”.</p>
+            <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+              Campus highlights
+            </h2>
+            <p className="mt-2 text-muted-foreground">
+              A little extra confidence before you hit “Message”.
+            </p>
           </div>
         </div>
         <div className="grid gap-5 md:grid-cols-3">
@@ -473,38 +576,54 @@ function FeaturedDeals() {
 
 function HowItWorks() {
   const steps = [
-    { icon: BadgeCheck, t: "Verify your student email", d: "Sign up with your college email and get instantly verified." },
-    { icon: Search, t: "List or browse", d: "Post your item in 30 seconds, or browse curated campus listings." },
-    { icon: MessageCircle, t: "Chat & meet up", d: "Message safely and coordinate a meet-up on campus." },
+    {
+      icon: BadgeCheck,
+      t: "Verify your student email",
+      d: "Sign up with your college email and get instantly verified.",
+    },
+    {
+      icon: Search,
+      t: "List or browse",
+      d: "Post your item in 30 seconds, or browse curated campus listings.",
+    },
+    {
+      icon: MessageCircle,
+      t: "Chat & meet up",
+      d: "Message safely and coordinate a meet-up on campus.",
+    },
   ];
   return (
     <section className="relative py-24 overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-amber-50/20 via-background to-amber-50/50 dark:from-amber-950/10 dark:via-background dark:to-amber-950/20" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(59,130,246,0.08),transparent_70%)]" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-display text-3xl font-semibold italic tracking-tight sm:text-4xl">How it works</h2>
-        <p className="mt-3 text-muted-foreground">Three steps from idea to handshake.</p>
-      </div>
-      <div className="mt-14 grid gap-6 md:grid-cols-3">
-        {steps.map((s, i) => (
-          <motion.div
-            key={s.t}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: i * 0.1 }}
-            className="rounded-2xl border border-border bg-card p-7 shadow-soft"
-          >
-            <div className="grid h-11 w-11 place-items-center rounded-xl bg-brand-gradient text-primary-foreground">
-              <s.icon className="h-5 w-5" />
-            </div>
-            <div className="mt-5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step {i + 1}</div>
-            <h3 className="mt-1 text-lg font-semibold">{s.t}</h3>
-            <p className="mt-2 text-sm text-muted-foreground">{s.d}</p>
-          </motion.div>
-        ))}
-      </div>
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="font-display text-3xl font-semibold italic tracking-tight sm:text-4xl">
+            How it works
+          </h2>
+          <p className="mt-3 text-muted-foreground">Three steps from idea to handshake.</p>
+        </div>
+        <div className="mt-14 grid gap-6 md:grid-cols-3">
+          {steps.map((s, i) => (
+            <motion.div
+              key={s.t}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              className="rounded-2xl border border-border bg-card p-7 shadow-soft"
+            >
+              <div className="grid h-11 w-11 place-items-center rounded-xl bg-brand-gradient text-primary-foreground">
+                <s.icon className="h-5 w-5" />
+              </div>
+              <div className="mt-5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Step {i + 1}
+              </div>
+              <h3 className="mt-1 text-lg font-semibold">{s.t}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{s.d}</p>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -512,12 +631,36 @@ function HowItWorks() {
 
 function Features() {
   const items = [
-    { icon: ShieldCheck, t: "Verified students only", d: "Every account is tied to a real college email — no scammers, no bots." },
-    { icon: Bot, t: "AI fair-price engine", d: "Get instant price suggestions based on condition, demand, and trends." },
-    { icon: Zap, t: "Built for speed", d: "List an item in under 30 seconds. Chat in real time. Done." },
-    { icon: TrendingUp, t: "Smart recommendations", d: "We surface what your campus actually needs, not generic noise." },
-    { icon: Users, t: "Community ratings", d: "Buyers and sellers rate each other after every meet-up." },
-    { icon: MessageCircle, t: "Safe meet-up planner", d: "Coordinate locations and times right inside the chat." },
+    {
+      icon: ShieldCheck,
+      t: "Verified students only",
+      d: "Every account is tied to a real college email — no scammers, no bots.",
+    },
+    {
+      icon: Bot,
+      t: "AI fair-price engine",
+      d: "Get instant price suggestions based on condition, demand, and trends.",
+    },
+    {
+      icon: Zap,
+      t: "Built for speed",
+      d: "List an item in under 30 seconds. Chat in real time. Done.",
+    },
+    {
+      icon: TrendingUp,
+      t: "Smart recommendations",
+      d: "We surface what your campus actually needs, not generic noise.",
+    },
+    {
+      icon: Users,
+      t: "Community ratings",
+      d: "Buyers and sellers rate each other after every meet-up.",
+    },
+    {
+      icon: MessageCircle,
+      t: "Safe meet-up planner",
+      d: "Coordinate locations and times right inside the chat.",
+    },
   ];
   return (
     <section className="relative py-24 overflow-hidden">
@@ -525,8 +668,12 @@ function Features() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(59,130,246,0.08),transparent_70%)]" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="font-display text-3xl font-semibold italic tracking-tight sm:text-4xl">Built for the way students actually trade</h2>
-          <p className="mt-3 text-muted-foreground">Trust, speed, and intelligence baked into every screen.</p>
+          <h2 className="font-display text-3xl font-semibold italic tracking-tight sm:text-4xl">
+            Built for the way students actually trade
+          </h2>
+          <p className="mt-3 text-muted-foreground">
+            Trust, speed, and intelligence baked into every screen.
+          </p>
         </div>
         <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((f, i) => (
@@ -556,7 +703,9 @@ function Testimonials() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(59,130,246,0.08),transparent_70%)]" />
       <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="font-display text-3xl font-semibold italic tracking-tight sm:text-4xl">Loved by students</h2>
+          <h2 className="font-display text-3xl font-semibold italic tracking-tight sm:text-4xl">
+            Loved by students
+          </h2>
           <p className="mt-3 text-muted-foreground">Real stories from verified campus users.</p>
         </div>
         <div className="mt-14 grid gap-5 md:grid-cols-3">
@@ -570,7 +719,9 @@ function Testimonials() {
               className="rounded-2xl border border-border bg-card p-7 shadow-soft"
             >
               <div className="flex gap-0.5 text-foreground/80">
-                {[...Array(5)].map((_, j) => <Star key={j} className="h-4 w-4 fill-current" />)}
+                {[...Array(5)].map((_, j) => (
+                  <Star key={j} className="h-4 w-4 fill-current" />
+                ))}
               </div>
               <p className="mt-4 text-sm leading-relaxed">"{t.quote}"</p>
               <div className="mt-5 flex items-center gap-3 border-t border-border pt-5">
@@ -593,7 +744,7 @@ function CTA() {
     <section className="relative px-4 py-24 sm:px-6 lg:px-8 overflow-hidden">
       {/* Warm gradient background */}
       <div className="absolute inset-0 bg-gradient-to-b from-amber-50/20 via-background to-amber-50/60 dark:from-amber-950/10 dark:via-background dark:to-amber-950/30" />
-      
+
       <div className="relative mx-auto max-w-5xl overflow-hidden rounded-3xl border border-amber-200/60 bg-gradient-to-br from-amber-50 via-orange-50/80 to-yellow-50 p-12 text-center shadow-elegant dark:border-amber-800/30 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-yellow-950/40 sm:p-16">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(251,191,36,0.12),transparent_60%)]" />
         <div className="absolute -right-32 -top-32 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(251,191,36,0.08),transparent_65%)] blur-3xl" />
@@ -606,12 +757,19 @@ function CTA() {
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link to="/signup">
-              <Button size="lg" className="rounded-full bg-brand-gradient px-8 text-primary-foreground shadow-elegant hover:opacity-90">
+              <Button
+                size="lg"
+                className="rounded-full bg-brand-gradient px-8 text-primary-foreground shadow-elegant hover:opacity-90"
+              >
                 Get started — free
               </Button>
             </Link>
             <Link to="/marketplace">
-              <Button size="lg" variant="outline" className="rounded-full border-border px-8 text-foreground hover:bg-secondary">
+              <Button
+                size="lg"
+                variant="outline"
+                className="rounded-full border-border px-8 text-foreground hover:bg-secondary"
+              >
                 Browse listings
               </Button>
             </Link>

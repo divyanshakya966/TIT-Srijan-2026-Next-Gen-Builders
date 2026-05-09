@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import type { Product } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { useWishlist } from "@/lib/wishlist";
+import { ListingRiskBadge } from "@/components/listing-safety-banner";
 
 export function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const wishlist = useWishlist();
@@ -25,6 +26,7 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
         className="group block overflow-hidden rounded-2xl border border-border bg-card transition-all hover:-translate-y-1 hover:shadow-elegant"
       >
         <div className="relative aspect-square overflow-hidden bg-muted">
+          <ListingRiskBadge product={product} />
           <img
             src={product.image}
             alt={product.title}
@@ -81,12 +83,16 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
           </div>
           <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug">{product.title}</h3>
           {product.shortDescription ? (
-            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{product.shortDescription}</p>
+            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+              {product.shortDescription}
+            </p>
           ) : null}
 
           <div className="mt-3 flex items-end justify-between">
             <div>
-              <div className="text-lg font-bold tracking-tight">₹{product.price.toLocaleString("en-IN")}</div>
+              <div className="text-lg font-bold tracking-tight">
+                ₹{product.price.toLocaleString("en-IN")}
+              </div>
               {product.originalPrice && (
                 <div className="text-xs text-muted-foreground line-through">
                   ₹{product.originalPrice.toLocaleString("en-IN")}
@@ -105,7 +111,9 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1 text-xs font-medium">
                 <span className="truncate">{product.seller.name}</span>
-                {product.seller.verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-foreground" />}
+                {product.seller.verified && (
+                  <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-foreground" />
+                )}
               </div>
               <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                 <MapPin className="h-3 w-3" />

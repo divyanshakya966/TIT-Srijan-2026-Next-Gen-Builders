@@ -18,25 +18,49 @@ export function Footer() {
             </span>
           </Link>
           <p className="mt-4 max-w-sm text-sm text-muted-foreground">
-            The trusted marketplace built exclusively for verified college students.
-            Buy, sell, rent, exchange — all within your campus community.
+            The trusted marketplace built exclusively for verified college students. Buy, sell,
+            rent, exchange — all within your campus community.
           </p>
           <div className="mt-6 flex gap-3 text-muted-foreground">
-            <a href="#" className="rounded-full border border-border p-2 transition hover:text-foreground"><Twitter className="h-4 w-4" /></a>
-            <a href="#" className="rounded-full border border-border p-2 transition hover:text-foreground"><Instagram className="h-4 w-4" /></a>
-            <a href="#" className="rounded-full border border-border p-2 transition hover:text-foreground"><Github className="h-4 w-4" /></a>
+            <a
+              href="#"
+              className="rounded-full border border-border p-2 transition hover:text-foreground"
+            >
+              <Twitter className="h-4 w-4" />
+            </a>
+            <a
+              href="#"
+              className="rounded-full border border-border p-2 transition hover:text-foreground"
+            >
+              <Instagram className="h-4 w-4" />
+            </a>
+            <a
+              href="#"
+              className="rounded-full border border-border p-2 transition hover:text-foreground"
+            >
+              <Github className="h-4 w-4" />
+            </a>
           </div>
         </div>
 
         {[
-          { title: "Product", links: ["Marketplace", "How it works", "AI pricing", "Trust & safety"] },
+          {
+            title: "Product",
+            links: ["Marketplace", "How it works", "AI pricing", "Trust & safety"],
+          },
           { title: "Company", links: ["About", "Careers", "Press", "Contact"] },
           { title: "Legal", links: ["Terms", "Privacy", "Cookies", "Guidelines"] },
         ].map((col) => (
           <div key={col.title}>
             <h4 className="text-sm font-semibold">{col.title}</h4>
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-              {col.links.map((l) => <li key={l}><a href="#" className="hover:text-foreground">{l}</a></li>)}
+              {col.links.map((l) => (
+                <li key={l}>
+                  <a href="#" className="hover:text-foreground">
+                    {l}
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
         ))}

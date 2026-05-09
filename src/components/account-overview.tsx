@@ -4,7 +4,8 @@ export function formatProfileDate(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === "") return "Unknown";
 
   const numeric = typeof value === "number" ? value : Number(value);
-  const parsed = Number.isFinite(numeric) && numeric > 1e12 ? new Date(numeric) : new Date(String(value));
+  const parsed =
+    Number.isFinite(numeric) && numeric > 1e12 ? new Date(numeric) : new Date(String(value));
 
   if (Number.isNaN(parsed.getTime())) return String(value);
 
@@ -32,11 +33,19 @@ export function AccountOverview({ profile }: { profile: any }) {
           { label: "Email", value: email },
           { label: "Member since", value: formatProfileDate(profile?.createdAt) },
           { label: "Last login", value: formatProfileDate(profile?.lastLoginAt) },
-          { label: "Verification", value: profile?.emailVerified ? "Email verified" : "Verification pending" },
+          {
+            label: "Verification",
+            value: profile?.emailVerified ? "Email verified" : "Verification pending",
+          },
         ].map((item) => (
           <div key={item.label} className="rounded-xl border border-border bg-secondary/30 p-4">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{item.label}</div>
-            <div className="mt-2 text-sm font-medium text-foreground break-words" data-testid={`account-${item.label.replace(/\s+/g, "-")}`}>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {item.label}
+            </div>
+            <div
+              className="mt-2 text-sm font-medium text-foreground break-words"
+              data-testid={`account-${item.label.replace(/\s+/g, "-")}`}
+            >
               {item.value}
             </div>
           </div>

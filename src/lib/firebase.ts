@@ -1,14 +1,6 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { GoogleAuthProvider, getAuth } from "firebase/auth";
-
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-};
+import { getFirestore } from "firebase/firestore";
 
 const requiredEnvKeys = [
   "VITE_FIREBASE_API_KEY",
@@ -17,15 +9,60 @@ const requiredEnvKeys = [
   "VITE_FIREBASE_APP_ID",
 ] as const;
 
-const missingKeys = requiredEnvKeys.filter((key) => !import.meta.env[key]);
+/** True when all required client env vars are set (real Firebase project). */
+export const isFirebaseConfigured = requiredEnvKeys.every((key) => {
+  const raw = import.meta.env[key];
+  return typeof raw === "string" && raw.trim().length > 0;
+});
 
-if (missingKeys.length > 0) {
-  throw new Error(`Missing Firebase environment variables: ${missingKeys.join(", ")}`);
+const devFirebaseFallback = {
+  apiKey: "dev-placeholder-api-key",
+  authDomain: "dev-placeholder.firebaseapp.com",
+  projectId: "dev-placeholder-project",
+  appId: "1:111111111111:web:aaaaaaaaaaaaaaaaaaaaaa",
+  storageBucket: "dev-placeholder-project.appspot.com",
+  messagingSenderId: "111111111111",
+} as const;
+
+function envOrEmpty(key: (typeof requiredEnvKeys)[number]): string {
+  const raw = import.meta.env[key];
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+const firebaseConfig = {
+  apiKey: envOrEmpty("VITE_FIREBASE_API_KEY") || (import.meta.env.DEV ? devFirebaseFallback.apiKey : ""),
+  authDomain:
+    envOrEmpty("VITE_FIREBASE_AUTH_DOMAIN") ||
+    (import.meta.env.DEV ? devFirebaseFallback.authDomain : ""),
+  projectId:
+    envOrEmpty("VITE_FIREBASE_PROJECT_ID") ||
+    (import.meta.env.DEV ? devFirebaseFallback.projectId : ""),
+  appId: envOrEmpty("VITE_FIREBASE_APP_ID") || (import.meta.env.DEV ? devFirebaseFallback.appId : ""),
+  storageBucket:
+    envOrEmpty("VITE_FIREBASE_STORAGE_BUCKET") ||
+    (import.meta.env.DEV ? devFirebaseFallback.storageBucket : ""),
+  messagingSenderId:
+    envOrEmpty("VITE_FIREBASE_MESSAGING_SENDER_ID") ||
+    (import.meta.env.DEV ? devFirebaseFallback.messagingSenderId : ""),
+};
+
+const missingForProduction = requiredEnvKeys.filter((key) => !envOrEmpty(key));
+
+if (!import.meta.env.DEV && missingForProduction.length > 0) {
+  throw new Error(`Missing Firebase environment variables: ${missingForProduction.join(", ")}`);
+}
+
+if (import.meta.env.DEV && missingForProduction.length > 0) {
+  console.warn(
+    `[Firebase] Missing: ${missingForProduction.join(", ")} — using dev placeholders only. ` +
+      `Copy .env.example to .env and add your Firebase web config so Auth + Firestore work.`,
+  );
 }
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
+export const db = getFirestore(app);
 
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });

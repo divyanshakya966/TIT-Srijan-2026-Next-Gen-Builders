@@ -5,13 +5,26 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CAMPUSES } from "@/lib/campus";
 import { toast } from "sonner";
+import type { Category } from "@/lib/mock-data";
+import { submitItemRequest } from "@/lib/firestore-item-requests";
+import { useAuth } from "@/lib/auth";
 
-const CATEGORIES = ["Books", "Gadgets", "Notes", "Electronics", "Cycles", "Hostel Essentials", "Lab Equipment", "Furniture"] as const;
+const CATEGORIES = [
+  "Books",
+  "Gadgets",
+  "Notes",
+  "Electronics",
+  "Cycles",
+  "Hostel Essentials",
+  "Lab Equipment",
+  "Furniture",
+] as const;
 const CONDITIONS = ["Any", "New", "Like New", "Good", "Used"] as const;
 const URGENCY_LEVELS = ["Low", "Medium", "High", "Urgent"] as const;
 const DEPARTMENTS = ["CSE", "Mechanical", "Civil", "ECE", "MBA", "EEE", "IT", "Chemical"] as const;
 
 export function RequestItemModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     itemName: "",
@@ -30,13 +43,63 @@ export function RequestItemModal({ open, onClose }: { open: boolean; onClose: ()
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.itemName.trim()) return;
+    if (!user) {
+      toast.error("Sign in required", {
+        description: "Please sign in to post a request to the campus board.",
+      });
+      return;
+    }
+    const cat = (form.category || "Books") as Category;
+    const budgetMin = Math.max(0, Number(form.budgetMin) || 0);
+    const budgetMax = Math.max(budgetMin, Number(form.budgetMax) || budgetMin);
+
     setSubmitting(true);
-    // Simulate async submission
-    await new Promise((r) => setTimeout(r, 1200));
-    setSubmitting(false);
-    toast.success("Request posted!", { description: `Your request for "${form.itemName}" is now visible to sellers on campus.` });
-    setForm({ itemName: "", category: "", budgetMin: "", budgetMax: "", condition: "Any", description: "", urgency: "Medium", campus: "", department: "" });
-    onClose();
+    try {
+      await submitItemRequest({
+        itemName: form.itemName.trim(),
+        category: cat,
+        budgetMin,
+        budgetMax,
+        condition: form.condition,
+        description: form.description.trim(),
+        urgency:
+          form.urgency === "Low" ||
+          form.urgency === "Medium" ||
+          form.urgency === "High" ||
+          form.urgency === "Urgent"
+            ? form.urgency
+            : "Medium",
+        campus: form.campus || "Campus",
+        department: form.department || "General",
+        studentName: user.displayName ?? user.email?.split("@")[0] ?? "Student",
+        studentAvatar: user.photoURL ?? undefined,
+        studentVerified: user.emailVerified,
+        authorUid: user.uid,
+      });
+      toast.success("Request posted", {
+        description: `Your request for "${form.itemName}" is live for sellers.`,
+      });
+      setForm({
+        itemName: "",
+        category: "",
+        budgetMin: "",
+        budgetMax: "",
+        condition: "Any",
+        description: "",
+        urgency: "Medium",
+        campus: "",
+        department: "",
+      });
+      onClose();
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not post request", {
+        description:
+          err instanceof Error ? err.message : "Check Firebase/Firestore rules and try again.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -75,7 +138,10 @@ export function RequestItemModal({ open, onClose }: { open: boolean; onClose: ()
                   <p className="text-xs text-muted-foreground">Tell the campus what you need</p>
                 </div>
               </div>
-              <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition hover:bg-secondary hover:text-foreground">
+              <button
+                onClick={onClose}
+                className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -85,7 +151,9 @@ export function RequestItemModal({ open, onClose }: { open: boolean; onClose: ()
               <div className="space-y-4">
                 {/* Item Name */}
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">What do you need? <span className="text-destructive">*</span></label>
+                  <label className="mb-1.5 block text-sm font-medium">
+                    What do you need? <span className="text-destructive">*</span>
+                  </label>
                   <input
                     value={form.itemName}
                     onChange={(e) => updateField("itemName", e.target.value)}
@@ -99,16 +167,32 @@ export function RequestItemModal({ open, onClose }: { open: boolean; onClose: ()
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1.5 block text-sm font-medium">Category</label>
-                    <select value={form.category} onChange={(e) => updateField("category", e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary">
+                    <select
+                      value={form.category}
+                      onChange={(e) => updateField("category", e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary"
+                    >
                       <option value="">Select...</option>
-                      {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                      {CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
                     <label className="mb-1.5 block text-sm font-medium">Department</label>
-                    <select value={form.department} onChange={(e) => updateField("department", e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary">
+                    <select
+                      value={form.department}
+                      onChange={(e) => updateField("department", e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary"
+                    >
                       <option value="">Select...</option>
-                      {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                      {DEPARTMENTS.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -138,8 +222,16 @@ export function RequestItemModal({ open, onClose }: { open: boolean; onClose: ()
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1.5 block text-sm font-medium">Condition Preferred</label>
-                    <select value={form.condition} onChange={(e) => updateField("condition", e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary">
-                      {CONDITIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+                    <select
+                      value={form.condition}
+                      onChange={(e) => updateField("condition", e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary"
+                    >
+                      {CONDITIONS.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -153,11 +245,14 @@ export function RequestItemModal({ open, onClose }: { open: boolean; onClose: ()
                           className={cn(
                             "flex-1 rounded-lg py-2 text-xs font-medium transition",
                             form.urgency === u
-                              ? u === "Urgent" ? "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30"
-                              : u === "High" ? "bg-orange-500/15 text-orange-600 dark:text-orange-400 border border-orange-500/30"
-                              : u === "Medium" ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30"
-                              : "bg-green-500/15 text-green-600 dark:text-green-400 border border-green-500/30"
-                              : "border border-border bg-secondary/50 text-muted-foreground hover:text-foreground"
+                              ? u === "Urgent"
+                                ? "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30"
+                                : u === "High"
+                                  ? "bg-orange-500/15 text-orange-600 dark:text-orange-400 border border-orange-500/30"
+                                  : u === "Medium"
+                                    ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30"
+                                    : "bg-green-500/15 text-green-600 dark:text-green-400 border border-green-500/30"
+                              : "border border-border bg-secondary/50 text-muted-foreground hover:text-foreground",
                           )}
                         >
                           {u}
@@ -170,9 +265,17 @@ export function RequestItemModal({ open, onClose }: { open: boolean; onClose: ()
                 {/* Campus */}
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Campus</label>
-                  <select value={form.campus} onChange={(e) => updateField("campus", e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary">
+                  <select
+                    value={form.campus}
+                    onChange={(e) => updateField("campus", e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary"
+                  >
                     <option value="">Select campus...</option>
-                    {CAMPUSES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    {CAMPUSES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -190,7 +293,10 @@ export function RequestItemModal({ open, onClose }: { open: boolean; onClose: ()
 
                 {/* Image Upload (dummy) */}
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Reference Image <span className="text-xs text-muted-foreground">(optional)</span></label>
+                  <label className="mb-1.5 block text-sm font-medium">
+                    Reference Image{" "}
+                    <span className="text-xs text-muted-foreground">(optional)</span>
+                  </label>
                   <div className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-6 text-sm text-muted-foreground transition hover:border-primary/40 hover:text-foreground">
                     <Upload className="h-4 w-4" />
                     <span>Click to upload or drag & drop</span>
@@ -200,7 +306,9 @@ export function RequestItemModal({ open, onClose }: { open: boolean; onClose: ()
 
               {/* Submit */}
               <div className="mt-6 flex items-center justify-end gap-3 border-t border-border pt-4">
-                <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+                <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+                  Cancel
+                </Button>
                 <Button
                   type="submit"
                   size="sm"

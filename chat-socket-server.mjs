@@ -1,12 +1,13 @@
 import { createServer } from "node:http";
 import { Server } from "socket.io";
 
+// IDs and metadata stay aligned with `src/lib/mock-data.ts` conversations (peer threads only).
 const threads = [
   {
     id: "c1",
-    name: "Riya Sharma",
-    avatar: "https://i.pravatar.cc/120?img=47",
-    product: "Apple MacBook Air M1",
+    name: "Rhea Kulkarni",
+    avatar: "https://i.pravatar.cc/120?img=12",
+    product: "B.S. Grewal Maths",
     online: true,
     lastMsg: "",
     time: "",
@@ -14,27 +15,27 @@ const threads = [
   },
   {
     id: "c2",
-    name: "Karthik R.",
-    avatar: "https://i.pravatar.cc/120?img=33",
-    product: "Casio Calculator",
-    online: false,
-    lastMsg: "",
-    time: "",
-    unread: 0,
-  },
-  {
-    id: "c3",
-    name: "Devansh Kapoor",
-    avatar: "https://i.pravatar.cc/120?img=14",
-    product: "Hercules Cycle",
+    name: "Yash Tiwari",
+    avatar: "https://i.pravatar.cc/120?img=47",
+    product: "MacBook Air M1",
     online: true,
     lastMsg: "",
     time: "",
     unread: 0,
   },
   {
+    id: "c3",
+    name: "Mihir Jain",
+    avatar: "https://i.pravatar.cc/120?img=33",
+    product: "Casio FX-991ES",
+    online: false,
+    lastMsg: "",
+    time: "",
+    unread: 0,
+  },
+  {
     id: "c4",
-    name: "Meera Iyer",
+    name: "Sana Thomas",
     avatar: "https://i.pravatar.cc/120?img=20",
     product: "Study Lamp",
     online: false,
@@ -46,10 +47,21 @@ const threads = [
 
 const seedMessages = [];
 
-const threadState = new Map(threads.map((thread) => [thread.id, { thread, messages: seedMessages.map((message) => ({ ...message, threadId: thread.id, reactions: {} })) }]));
+const threadState = new Map(
+  threads.map((thread) => [
+    thread.id,
+    {
+      thread,
+      messages: seedMessages.map((message) => ({ ...message, threadId: thread.id, reactions: {} })),
+    },
+  ]),
+);
 
 const cannedReplies = {
-  c1: ["Yes, still available. Want to meet at the library?", "I can share more photos if you need them."],
+  c1: [
+    "Yes, still available. Want to meet at the library?",
+    "I can share more photos if you need them.",
+  ],
   c2: ["Yes, it is available. What time works for you?", "I can bring the charger too."],
   c3: ["Sure, I’ll bring it tomorrow after class.", "Happy to meet near the main gate."],
   c4: ["Yes, tomorrow morning works for me.", "I’ll keep it reserved until then."],
@@ -84,7 +96,28 @@ const io = new Server(httpServer, {
 
 io.on("connection", (socket) => {
   socket.on("chat:threads:load", () => {
-    socket.emit("chat:threads", { threads: [...threadState.values()].map((entry) => entry.thread) });
+    socket.emit("chat:threads", {
+      threads: [...threadState.values()].map((entry) => entry.thread),
+    });
+  });
+
+  socket.on("chat:dm:ensure", ({ threadId, thread }) => {
+    if (typeof threadId !== "string" || !threadId.startsWith("dm_") || !thread || typeof thread !== "object") {
+      return;
+    }
+    if (!threadState.has(threadId)) {
+      threadState.set(threadId, {
+        thread: {
+          ...thread,
+          id: threadId,
+          product: thread.product || "Direct message",
+        },
+        messages: [],
+      });
+    }
+    socket.emit("chat:threads", {
+      threads: [...threadState.values()].map((entry) => entry.thread),
+    });
   });
 
   socket.on("chat:thread:join", ({ threadId }) => {
@@ -119,18 +152,25 @@ io.on("connection", (socket) => {
     setTimeout(() => {
       const next = threadState.get(threadId);
       if (!next) return;
-      next.messages = next.messages.map((m) => (m.id === message.id ? { ...m, delivery: "delivered" } : m));
+      next.messages = next.messages.map((m) =>
+        m.id === message.id ? { ...m, delivery: "delivered" } : m,
+      );
       io.to(threadId).emit("chat:thread:update", cloneThreadPayload(threadId));
     }, 300);
 
     setTimeout(() => {
       const next = threadState.get(threadId);
       if (!next) return;
-      next.messages = next.messages.map((m) => (m.id === message.id ? { ...m, delivery: "seen" } : m));
+      next.messages = next.messages.map((m) =>
+        m.id === message.id ? { ...m, delivery: "seen" } : m,
+      );
       io.to(threadId).emit("chat:thread:update", cloneThreadPayload(threadId));
     }, 900);
 
     setTimeout(() => {
+      if (typeof threadId === "string" && threadId.startsWith("dm_")) {
+        return;
+      }
       const next = threadState.get(threadId);
       if (!next) return;
       const replies = cannedReplies[threadId] ?? ["Sounds good.", "Okay, see you then."];

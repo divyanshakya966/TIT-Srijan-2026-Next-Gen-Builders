@@ -7,15 +7,30 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useWishlist } from "@/lib/wishlist";
 import { CAMPUSES, type CampusName, useCampus } from "@/lib/campus";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { ProductCard } from "@/components/product-card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { useAuth } from "@/lib/auth";
 import { buildFallbackUserProfile, useCurrentUserProfile } from "@/lib/user-profile";
 
 const links = [
   { to: "/marketplace", label: "Marketplace" },
+  { to: "/people", label: "People" },
   { to: "/dashboard", label: "Dashboard" },
   { to: "/chat", label: "Messages" },
 ];
@@ -84,7 +99,7 @@ export function Navbar() {
                   "relative rounded-full px-4 py-2 text-sm transition-all duration-200",
                   isActive
                     ? "text-[#064e3b] dark:text-[#34d399] font-bold bg-[#10b981]/15 dark:bg-[#059669]/20"
-                    : "font-medium text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                    : "font-medium text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
                 )}
               >
                 {l.label}
@@ -189,7 +204,8 @@ export function Navbar() {
                   <>
                     <div className="mb-3 flex items-center justify-between">
                       <div className="text-xs text-muted-foreground">
-                        <span className="font-semibold text-foreground">{wishlist.count}</span> saved
+                        <span className="font-semibold text-foreground">{wishlist.count}</span>{" "}
+                        saved
                       </div>
                       <Button
                         variant="ghost"
@@ -214,10 +230,15 @@ export function Navbar() {
           {!isSignedIn ? (
             <>
               <Link to="/login" className="hidden sm:inline-flex">
-                <Button variant="ghost" size="sm">Sign in</Button>
+                <Button variant="ghost" size="sm">
+                  Sign in
+                </Button>
               </Link>
               <Link to="/signup" className="hidden sm:inline-flex">
-                <Button size="sm" className="rounded-full bg-brand-gradient text-primary-foreground shadow-soft hover:opacity-90">
+                <Button
+                  size="sm"
+                  className="rounded-full bg-brand-gradient text-primary-foreground shadow-soft hover:opacity-90"
+                >
                   Get started
                 </Button>
               </Link>
@@ -227,7 +248,11 @@ export function Navbar() {
               <Link to="/dashboard" className="hidden sm:inline-flex">
                 <Button variant="ghost" size="sm" className="gap-2 rounded-full">
                   {profile?.photoUrl ? (
-                    <img src={profile.photoUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
+                    <img
+                      src={profile.photoUrl}
+                      alt=""
+                      className="h-5 w-5 rounded-full object-cover"
+                    />
                   ) : (
                     <span className="grid h-5 w-5 place-items-center rounded-full bg-secondary text-[10px] font-semibold text-foreground">
                       {avatarLabel}
@@ -246,7 +271,13 @@ export function Navbar() {
               </Button>
             </>
           )}
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setOpen(!open)} aria-label="Menu">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setOpen(!open)}
+            aria-label="Menu"
+          >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
         </div>
@@ -265,13 +296,17 @@ export function Navbar() {
               {links.map((l) => {
                 const isActive = path.startsWith(l.to);
                 return (
-                  <Link key={l.to} to={l.to} onClick={() => setOpen(false)}
+                  <Link
+                    key={l.to}
+                    to={l.to}
+                    onClick={() => setOpen(false)}
                     className={cn(
                       "rounded-lg px-3 py-2 text-sm transition-all duration-200",
                       isActive
                         ? "text-[#064e3b] dark:text-[#34d399] font-bold bg-[#10b981]/15 dark:bg-[#059669]/20"
-                        : "font-medium text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
-                    )}>
+                        : "font-medium text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
+                    )}
+                  >
                     {l.label}
                   </Link>
                 );
@@ -279,13 +314,25 @@ export function Navbar() {
               <div className="mt-2 flex gap-2">
                 {isSignedIn ? (
                   <>
-                    <Link to="/dashboard" className="flex-1"><Button variant="outline" className="w-full">Dashboard</Button></Link>
-                    <Button className="flex-1 w-full bg-brand-gradient" onClick={handleSignOut}>Sign out</Button>
+                    <Link to="/dashboard" className="flex-1">
+                      <Button variant="outline" className="w-full">
+                        Dashboard
+                      </Button>
+                    </Link>
+                    <Button className="flex-1 w-full bg-brand-gradient" onClick={handleSignOut}>
+                      Sign out
+                    </Button>
                   </>
                 ) : (
                   <>
-                    <Link to="/login" className="flex-1"><Button variant="outline" className="w-full">Sign in</Button></Link>
-                    <Link to="/signup" className="flex-1"><Button className="w-full bg-brand-gradient">Get started</Button></Link>
+                    <Link to="/login" className="flex-1">
+                      <Button variant="outline" className="w-full">
+                        Sign in
+                      </Button>
+                    </Link>
+                    <Link to="/signup" className="flex-1">
+                      <Button className="w-full bg-brand-gradient">Get started</Button>
+                    </Link>
                   </>
                 )}
               </div>
