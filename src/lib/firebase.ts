@@ -24,7 +24,7 @@ const devFirebaseFallback = {
   messagingSenderId: "111111111111",
 } as const;
 
-function envOrEmpty(key: (typeof requiredEnvKeys)[number]): string {
+function envOrEmpty(key: string): string {
   const raw = import.meta.env[key];
   return typeof raw === "string" ? raw.trim() : "";
 }

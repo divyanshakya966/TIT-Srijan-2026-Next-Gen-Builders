@@ -24,13 +24,30 @@ function PeoplePage() {
   const [query, setQuery] = useState("");
   const [nearbyOnly, setNearbyOnly] = useState(true);
   const [profiles, setProfiles] = useState<PublicProfileDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (!isFirebaseConfigured || typeof window === "undefined") {
       setProfiles([]);
+      setLoading(false);
+      setError(null);
       return undefined;
     }
-    const unsub = subscribePublicProfiles(setProfiles);
+    setLoading(true);
+    setError(null);
+    const unsub = subscribePublicProfiles(
+      (nextProfiles) => {
+        setProfiles(nextProfiles);
+        setLoading(false);
+        setError(null);
+      },
+      (err) => {
+        setProfiles([]);
+        setLoading(false);
+        setError(err);
+      },
+    );
     return unsub;
   }, []);
 
@@ -104,6 +121,11 @@ function PeoplePage() {
                 Firebase env vars are not configured — people discovery syncs after you add `.env`.
               </p>
             ) : null}
+            {error ? (
+              <p className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2 text-xs text-destructive">
+                People discovery is temporarily offline. Showing cached profile rows only.
+              </p>
+            ) : null}
           </div>
         </section>
 
@@ -127,7 +149,11 @@ function PeoplePage() {
           ) : null}
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.length === 0 ? (
+            {loading && filtered.length === 0 ? (
+              [...Array(6)].map((_, i) => (
+                <div key={i} className="h-40 animate-pulse rounded-2xl border border-border bg-card" />
+              ))
+            ) : filtered.length === 0 ? (
               <div className="col-span-full grid place-items-center rounded-2xl border border-dashed border-border py-20 text-center text-sm text-muted-foreground">
                 No profiles match. Invite classmates after they log in once — profiles populate after signup.
               </div>

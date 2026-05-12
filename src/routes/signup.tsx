@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthAside, Field, SocialBtn } from "./login";
 import { auth, getFirebaseAuthErrorMessage, googleProvider } from "@/lib/firebase";
+import { useRedirectAuthenticated } from "@/lib/route-auth";
 import { syncAuthenticatedUserToMongo } from "@/lib/user-sync";
 import { toast } from "sonner";
 
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/signup")({ component: SignupPage });
 
 function SignupPage() {
   const navigate = useNavigate();
+  useRedirectAuthenticated("/dashboard");
   const [show, setShow] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");

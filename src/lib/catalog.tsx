@@ -28,6 +28,7 @@ export type CatalogContextValue = {
   products: Product[];
   loading: boolean;
   firestoreLinked: boolean;
+  firestoreError: Error | null;
 };
 
 const CatalogContext = React.createContext<CatalogContextValue | null>(null);
@@ -44,14 +45,17 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const [fromFs, setFromFs] = React.useState<Product[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [firestoreLinked, setFirestoreLinked] = React.useState(true);
+  const [firestoreError, setFirestoreError] = React.useState<Error | null>(null);
 
   React.useEffect(() => {
     if (typeof window === "undefined" || !isFirebaseConfigured) {
       setLoading(false);
       setFirestoreLinked(false);
+      setFirestoreError(null);
       return undefined;
     }
 
+    setLoading(true);
     const unsub = onSnapshot(
       collection(db, "listings"),
       (snap) => {
@@ -63,12 +67,14 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         setFromFs(next);
         setLoading(false);
         setFirestoreLinked(true);
+        setFirestoreError(null);
       },
       (err) => {
-        console.error(err);
+        console.error("Firestore error:", err);
         setFromFs([]);
         setLoading(false);
         setFirestoreLinked(false);
+        setFirestoreError(err instanceof Error ? err : new Error(String(err)));
       },
     );
 
@@ -78,8 +84,8 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const products = React.useMemo(() => mergeCatalog(seedProducts, fromFs), [fromFs]);
 
   const value = React.useMemo(
-    () => ({ products, loading, firestoreLinked }),
-    [products, loading, firestoreLinked],
+    () => ({ products, loading, firestoreLinked, firestoreError }),
+    [products, loading, firestoreLinked, firestoreError],
   );
 
   return <CatalogContext.Provider value={value}>{children}</CatalogContext.Provider>;

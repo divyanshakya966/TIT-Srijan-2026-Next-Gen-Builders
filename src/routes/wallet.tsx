@@ -2,16 +2,55 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useWalletBalance, useTransactionHistory } from "@/lib/economy";
 import { Coins, ArrowUpRight, ArrowDownLeft, Clock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/lib/auth";
+import { useRequireAuth } from "@/lib/route-auth";
+import { asHttpError, isAuthHttpStatus } from "@/lib/http-error";
 
 export const Route = createFileRoute("/wallet")({
   component: WalletPage,
 });
 
 function WalletPage() {
-  const { user } = useAuth();
-  const { data: balance = 0, isLoading: loadingBalance } = useWalletBalance();
-  const { data: transactions = [], isLoading: loadingTx } = useTransactionHistory();
+  const { user, loading } = useRequireAuth("/login");
+  const {
+    data: balance = 0,
+    isLoading: loadingBalance,
+    error: balanceError,
+  } = useWalletBalance();
+  const {
+    data: transactions = [],
+    isLoading: loadingTx,
+    error: txError,
+  } = useTransactionHistory();
+
+  if (loading || !user) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+          Loading wallet access...
+        </div>
+      </div>
+    );
+  }
+
+  const anyError = balanceError ?? txError;
+  const httpError = asHttpError(anyError);
+
+  if (anyError) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="rounded-2xl border border-border bg-card p-10 text-center">
+          <h1 className="text-lg font-semibold">Wallet unavailable</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {httpError && isAuthHttpStatus(httpError.status)
+              ? "Your session expired. Please sign in again to view wallet data."
+              : anyError instanceof Error
+                ? anyError.message
+                : "Could not load wallet details right now."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">

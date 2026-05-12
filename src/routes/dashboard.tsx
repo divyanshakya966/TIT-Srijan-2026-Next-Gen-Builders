@@ -216,6 +216,11 @@ function DashboardPage() {
                   Your dashboard
                 </h1>
                 <p className="mt-1 text-xs text-muted-foreground">Signed in as {email}</p>
+                {profile?.source === "firebase" ? (
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                    Backend profile is unavailable; using Firebase fallback data.
+                  </p>
+                ) : null}
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -285,7 +290,10 @@ function DashboardPage() {
                     <ShoppingBag className="h-4 w-4" /> Browse marketplace
                   </Button>
                 </Link>
-                <Link to="/chat">
+                <Link
+                  to="/chat"
+                  search={{ peerUid: undefined, peerName: undefined, peerAvatar: undefined }}
+                >
                   <Button variant="outline" className="w-full justify-start rounded-xl">
                     <MessageCircle className="h-4 w-4" /> Open messages
                   </Button>

@@ -6,7 +6,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/lib/auth";
+import { useRequireAuth } from "@/lib/route-auth";
 
 export const Route = createFileRoute("/ai-chat")({ component: AIChatPage });
 
@@ -26,7 +26,7 @@ interface AIChatMessage {
 
 function AIChatPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading } = useRequireAuth("/login");
 
   const [messages, setMessages] = useState<AIChatMessage[]>([
     {
@@ -41,6 +41,19 @@ function AIChatPage() {
   const [errorText, setErrorText] = useState("");
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  if (loading || !user) {
+    return (
+      <div className="flex h-screen flex-col bg-background">
+        <Navbar />
+        <div className="mx-auto flex w-full max-w-4xl flex-1 items-center justify-center px-6 py-10">
+          <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+            Preparing your assistant session...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const addMessage = (text: string, sender: "user" | "assistant") => {
     const newMessage: AIChatMessage = {
@@ -135,7 +148,12 @@ function AIChatPage() {
           <div className="flex items-center justify-between border-b border-border bg-card px-6 py-4">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => navigate({ to: "/chat" })}
+                onClick={() =>
+                  navigate({
+                    to: "/chat",
+                    search: { peerUid: undefined, peerName: undefined, peerAvatar: undefined },
+                  })
+                }
                 className="rounded-lg p-2 hover:bg-accent"
               >
                 <ArrowLeft className="h-5 w-5" />

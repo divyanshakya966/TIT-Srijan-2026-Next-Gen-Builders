@@ -225,7 +225,10 @@ async function readUserProfile(userId: string, env: unknown) {
   return payload.document ?? null;
 }
 
-function buildUserProfile(user: AuthUser, storedProfile: StoredUserProfile | null) {
+function buildUserProfile(
+  user: AuthUser,
+  storedProfile: StoredUserProfile | null,
+): UserProfileResponse["user"] {
   const profile = storedProfile ?? {};
 
   return {
@@ -268,7 +271,44 @@ async function readTransactions(userId: string, env: unknown) {
   return payload.documents ?? [];
 }
 
-async function incrementWalletBalance(userId: string, amount: number, env: unknown) {
+async function findTransactionByReference(
+  senderId: string,
+  referenceId: string,
+  type: string,
+  amount: number,
+  receiverId: string,
+  env: unknown,
+) {
+  const config = getDataApiConfig(env);
+
+  if (!config) {
+    return null;
+  }
+
+  const response = await callDataApi(config, "findOne", {
+    filter: {
+      senderId,
+      referenceId,
+      type,
+      amount,
+      receiverId,
+    },
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json()) as DataApiResponse<Record<string, unknown>>;
+  return payload.document ?? null;
+}
+
+async function incrementWalletBalance(
+  userId: string,
+  amount: number,
+  env: unknown,
+  filter: Record<string, unknown> = {},
+) {
   const config = getDataApiConfig(env);
 
   if (!config) {
@@ -276,7 +316,7 @@ async function incrementWalletBalance(userId: string, amount: number, env: unkno
   }
 
   const response = await callDataApi(config, "updateOne", {
-    filter: { firebaseUid: userId },
+    filter: { firebaseUid: userId, ...filter },
     update: { $inc: { walletBalance: amount } },
   });
 
@@ -284,6 +324,13 @@ async function incrementWalletBalance(userId: string, amount: number, env: unkno
     const body = await response.text();
     throw new Error(`MongoDB Data API request failed (${response.status}): ${body}`);
   }
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    matchedCount?: number;
+    modifiedCount?: number;
+  };
+
+  return payload;
 }
 
 async function insertTransaction(transaction: Record<string, unknown>, env: unknown) {
@@ -499,38 +546,91 @@ async function handleApiRequest(request: Request, env: unknown): Promise<Respons
       };
 
       const amount = Number(body.amount);
+      const transferType = typeof body.type === "string" && body.type.trim() ? body.type.trim() : "buy";
+      const description =
+        typeof body.description === "string" && body.description.trim()
+          ? body.description.trim()
+          : "Transfer";
+      const referenceId =
+        typeof body.referenceId === "string" && body.referenceId.trim()
+          ? body.referenceId.trim()
+          : undefined;
+
       if (isNaN(amount) || amount <= 0 || !body.receiverId) {
         return new Response(JSON.stringify({ error: "Invalid transfer parameters" }), { status: 400 });
+      }
+
+      // Validate sender and receiver are different
+      if (user.localId === body.receiverId) {
+        return new Response(JSON.stringify({ error: "Cannot transfer to yourself" }), { status: 400 });
       }
 
       const senderProfile = await readUserProfile(user.localId, env);
       const senderBalance =
         typeof senderProfile?.walletBalance === "number" ? senderProfile.walletBalance : 1000;
 
-      if (senderBalance < amount) {
-        return new Response(JSON.stringify({ error: "Insufficient balance" }), { status: 400 });
+      if (referenceId) {
+        const existingTransaction = await findTransactionByReference(
+          user.localId,
+          referenceId,
+          transferType,
+          amount,
+          body.receiverId,
+          env,
+        );
+
+        if (existingTransaction) {
+          return new Response(JSON.stringify({ ok: true, transaction: existingTransaction }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        }
       }
 
       const receiverProfile = await readUserProfile(body.receiverId, env);
       if (!receiverProfile) {
-        return new Response(JSON.stringify({ error: "Receiver not found in db" }), { status: 400 });
+        return new Response(
+          JSON.stringify({ error: "Receiver not found" }),
+          { status: 404 }
+        );
       }
 
-      await incrementWalletBalance(user.localId, -amount, env);
-      await incrementWalletBalance(body.receiverId, amount, env);
+      const debitResult = await incrementWalletBalance(user.localId, -amount, env, {
+        walletBalance: { $gte: amount },
+      });
+
+      if ((debitResult.matchedCount ?? debitResult.modifiedCount ?? 0) === 0) {
+        return new Response(
+          JSON.stringify({ error: "Insufficient balance", balance: senderBalance }),
+          { status: 402 },
+        );
+      }
+
+      try {
+        await incrementWalletBalance(body.receiverId, amount, env);
+      } catch (error) {
+        await incrementWalletBalance(user.localId, amount, env);
+        throw error;
+      }
 
       const transaction = {
         id: crypto.randomUUID(),
         senderId: user.localId,
         receiverId: body.receiverId,
         amount,
-        type: body.type || "buy",
-        description: body.description || "Transfer",
-        referenceId: body.referenceId,
+        type: transferType,
+        description,
+        referenceId,
         createdAt: new Date().toISOString(),
       };
 
-      await insertTransaction(transaction, env);
+      try {
+        await insertTransaction(transaction, env);
+      } catch (error) {
+        await incrementWalletBalance(user.localId, amount, env);
+        await incrementWalletBalance(body.receiverId, -amount, env);
+        throw error;
+      }
 
       return new Response(JSON.stringify({ ok: true, transaction }), {
         status: 200,

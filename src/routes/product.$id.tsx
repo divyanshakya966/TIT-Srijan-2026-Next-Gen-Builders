@@ -13,6 +13,8 @@ import {
   ArrowLeft,
   Star,
   RotateCcw,
+  Edit3,
+  Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Navbar } from "@/components/navbar";
@@ -21,6 +23,7 @@ import { ProductCard } from "@/components/product-card";
 import { Button } from "@/components/ui/button";
 import { useCatalog } from "@/lib/catalog";
 import { useWishlist } from "@/lib/wishlist";
+import { useAuth } from "@/lib/auth";
 import {
   Dialog,
   DialogContent,
@@ -54,7 +57,12 @@ function ProductDetails() {
   const { id } = Route.useParams();
   const { products } = useCatalog();
   const product = products.find((p) => p.id === id);
+  const { user } = useAuth();
+  
   if (!product) throw notFound();
+  
+  const isOwner = user?.uid && product.sellerId === user.uid;
+  
   const [active, setActive] = useState(0);
   const wishlist = useWishlist();
   const liked = wishlist.has(product.id);
@@ -84,6 +92,12 @@ function ProductDetails() {
       toast.error("Cannot buy: Seller not found.");
       return;
     }
+    
+    if (product.sellerId === user?.uid) {
+      toast.error("You cannot purchase your own listing.");
+      return;
+    }
+    
     transferCoins(
       {
         receiverId: product.sellerId,
@@ -367,43 +381,74 @@ function ProductDetails() {
 
               {/* Actions */}
               <div className="mt-6 flex flex-wrap gap-3">
-                <Button
-                  size="lg"
-                  className="flex-1 rounded-full bg-brand-gradient text-primary-foreground shadow-elegant hover:opacity-90"
-                  onClick={handleBuyWithCoins}
-                  disabled={transferring}
-                >
-                  <Coins className="mr-2 h-4 w-4" />
-                  {transferring ? "Processing..." : `Buy with Coins · ${product.price.toLocaleString("en-IN")}`}
-                </Button>
-                {product.forRent && (
-                  <Button size="lg" variant="outline" className="rounded-full">
-                    Rent · ₹{product.rentPerDay}/day
-                  </Button>
+                {isOwner ? (
+                  <>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="flex-1 rounded-full"
+                      aria-label="Edit listing"
+                    >
+                      <Edit3 className="mr-2 h-4 w-4" />
+                      Edit listing
+                    </Button>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="rounded-full"
+                      aria-label="Delete listing"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      size="lg"
+                      className="flex-1 rounded-full bg-brand-gradient text-primary-foreground shadow-elegant hover:opacity-90"
+                      onClick={handleBuyWithCoins}
+                      disabled={transferring || !product.sellerId}
+                    >
+                      <Coins className="mr-2 h-4 w-4" />
+                      {transferring
+                        ? "Processing..."
+                        : `Buy with Coins · ${product.price.toLocaleString("en-IN")}`}
+                    </Button>
+                    {product.forRent && (
+                      <Button size="lg" variant="outline" className="rounded-full">
+                        Rent · ₹{product.rentPerDay}/day
+                      </Button>
+                    )}
+                    {product.forRent ? (
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="rounded-full"
+                        onClick={() => setReturnOpen(true)}
+                        aria-label="Return item"
+                      >
+                        <RotateCcw />
+                      </Button>
+                    ) : null}
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="rounded-full"
+                      onClick={() => wishlist.toggle(product)}
+                      aria-label="Wishlist"
+                    >
+                      <Heart className={liked ? "fill-foreground text-foreground" : ""} />
+                    </Button>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="rounded-full"
+                      aria-label="Share"
+                    >
+                      <Share2 />
+                    </Button>
+                  </>
                 )}
-                {product.forRent ? (
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="rounded-full"
-                    onClick={() => setReturnOpen(true)}
-                    aria-label="Return item"
-                  >
-                    <RotateCcw />
-                  </Button>
-                ) : null}
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="rounded-full"
-                  onClick={() => wishlist.toggle(product)}
-                  aria-label="Wishlist"
-                >
-                  <Heart className={liked ? "fill-foreground text-foreground" : ""} />
-                </Button>
-                <Button size="lg" variant="outline" className="rounded-full" aria-label="Share">
-                  <Share2 />
-                </Button>
               </div>
 
               {/* Seller */}
@@ -432,7 +477,7 @@ function ProductDetails() {
                       {product.seller.rating}
                     </div>
                   </div>
-                  {product.sellerId ? (
+                  {!isOwner && product.sellerId ? (
                     <Link
                       to="/chat"
                       search={{
@@ -445,13 +490,16 @@ function ProductDetails() {
                         <MessageCircle className="h-4 w-4" /> Chat
                       </Button>
                     </Link>
-                  ) : (
-                    <Link to="/chat">
+                  ) : !isOwner ? (
+                    <Link
+                      to="/chat"
+                      search={{ peerUid: undefined, peerName: undefined, peerAvatar: undefined }}
+                    >
                       <Button size="sm" variant="outline" className="rounded-full">
                         <MessageCircle className="h-4 w-4" /> Messages
                       </Button>
                     </Link>
-                  )}
+                  ) : null}
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
                   <div className="flex items-center gap-2 rounded-xl bg-secondary/60 p-3">
@@ -464,6 +512,28 @@ function ProductDetails() {
                   </div>
                 </div>
               </div>
+
+              {isOwner && (
+                <div className="mt-6 rounded-2xl border border-amber-500/30 bg-amber-50/5 p-5">
+                  <div className="text-sm font-semibold">Listing management</div>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <Button variant="outline" className="rounded-full" size="sm">
+                      <Edit3 className="mr-2 h-4 w-4" />
+                      Edit details
+                    </Button>
+                    <Button variant="outline" className="rounded-full" size="sm">
+                      View analytics
+                    </Button>
+                    <Button variant="outline" className="rounded-full" size="sm">
+                      Mark as sold
+                    </Button>
+                    <Button variant="destructive" className="rounded-full" size="sm">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete listing
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {/* Reviews */}
               <div className="mt-6 rounded-2xl border border-border bg-card p-5">

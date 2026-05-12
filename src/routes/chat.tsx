@@ -38,9 +38,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { buildFallbackUserProfile, useCurrentUserProfile } from "@/lib/user-profile";
-import { useAuth } from "@/lib/auth";
+import { useRequireAuth } from "@/lib/route-auth";
 import {
   getChatSocket,
+  useSocketStatus,
   type ChatAttachment,
   type ChatMessage,
   type ChatThread,
@@ -61,9 +62,10 @@ function ChatPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const socket = useMemo(() => getChatSocket(), []);
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useRequireAuth("/login");
   const profileQuery = useCurrentUserProfile();
   const profile = profileQuery.data ?? (user ? buildFallbackUserProfile(user) : null);
+  const socketStatus = useSocketStatus();
 
   const [threads, setThreads] = useState<ChatThread[]>(() => [AI_ASSISTANT_THREAD]);
   const [activeId, setActiveId] = useState(AI_ASSISTANT_THREAD.id);
@@ -85,6 +87,19 @@ function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const activeIdRef = useRef(activeId);
   const messagesRef = useRef(messages);
+
+  if (authLoading || !user) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Navbar />
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+          <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+            Loading your messages...
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   useEffect(() => {
     activeIdRef.current = activeId;
@@ -504,6 +519,39 @@ function ChatPage() {
 
           {/* Thread */}
           <section className={cn("flex flex-col", !showThread && "hidden md:flex")}>
+            {/* Connection Status Banner */}
+            {!socketStatus.connected && (
+              <div
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2.5 text-xs font-medium",
+                  socketStatus.error
+                    ? "bg-destructive/10 text-destructive"
+                    : "bg-warning/10 text-warning",
+                )}
+              >
+                {socketStatus.connecting ? (
+                  <>
+                    <motion.div
+                      className="h-1.5 w-1.5 rounded-full bg-current"
+                      animate={{ opacity: [0.5, 1] }}
+                      transition={{ duration: 0.8, repeat: Infinity }}
+                    />
+                    <span>Connecting to chat...</span>
+                  </>
+                ) : socketStatus.error ? (
+                  <>
+                    <span className="text-xs">⚠️</span>
+                    <span>Connection error. Retrying...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-xs">⛔</span>
+                    <span>Disconnected. Attempting to reconnect...</span>
+                  </>
+                )}
+              </div>
+            )}
+
             <header className="flex items-center gap-3 border-b border-border p-4">
               <button onClick={() => setShowThread(false)} className="md:hidden">
                 <ArrowLeft className="h-5 w-5" />
@@ -789,10 +837,27 @@ function ChatPage() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                send();
+                if (socketStatus.connected) send();
               }}
-              className="border-t border-border p-3"
-            >
+              className={cn("border-t border-border p-3", !socketStatus.connected && "opacity-60")}>
+              {!socketStatus.connected && (
+                <div className="mb-3 flex items-center justify-center gap-2 rounded-lg bg-muted/50 p-2 text-center text-xs text-muted-foreground">
+                  {socketStatus.connecting ? (
+                    <>
+                      <motion.span
+                        className="inline-block h-1.5 w-1.5 rounded-full bg-primary"
+                        animate={{ scale: [1, 1.3, 1] }}
+                        transition={{ duration: 0.8, repeat: Infinity }}
+                      />
+                      Reconnecting...
+                    </>
+                  ) : (
+                    <>
+                      <span>⚠️ Messages are offline</span>
+                    </>
+                  )}
+                </div>
+              )}
               {replyTo || editingId ? (
                 <div className="mb-2 flex items-center justify-between rounded-2xl border border-border bg-card px-3 py-2">
                   <div className="min-w-0">
@@ -926,11 +991,16 @@ function ChatPage() {
                   <textarea
                     value={text}
                     onChange={(e) => setText(e.target.value)}
+                    disabled={!socketStatus.connected}
                     rows={1}
-                    placeholder="Write a message…"
-                    className="max-h-28 w-full resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground"
+                    placeholder={
+                      !socketStatus.connected
+                        ? "Waiting for connection..."
+                        : "Write a message…"
+                    }
+                    className="max-h-28 w-full resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
+                      if (e.key === "Enter" && !e.shiftKey && socketStatus.connected) {
                         e.preventDefault();
                         send();
                       }
@@ -986,7 +1056,8 @@ function ChatPage() {
                   <Button
                     size="icon"
                     type="submit"
-                    className="rounded-2xl bg-brand-gradient text-primary-foreground shadow-soft hover:opacity-90"
+                    disabled={!socketStatus.connected}
+                    className="rounded-2xl bg-brand-gradient text-primary-foreground shadow-soft hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label="Send message"
                   >
                     <Send className="h-4 w-4" />

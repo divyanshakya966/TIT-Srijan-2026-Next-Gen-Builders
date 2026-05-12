@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import type { Category } from "@/lib/mock-data";
 import { submitItemRequest } from "@/lib/firestore-item-requests";
 import { useAuth } from "@/lib/auth";
+import { useCampus } from "@/lib/campus";
 
 const CATEGORIES = [
   "Books",
@@ -25,6 +26,7 @@ const DEPARTMENTS = ["CSE", "Mechanical", "Civil", "ECE", "MBA", "EEE", "IT", "C
 
 export function RequestItemModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { user } = useAuth();
+  const { campus } = useCampus();
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     itemName: "",
@@ -52,6 +54,7 @@ export function RequestItemModal({ open, onClose }: { open: boolean; onClose: ()
     const cat = (form.category || "Books") as Category;
     const budgetMin = Math.max(0, Number(form.budgetMin) || 0);
     const budgetMax = Math.max(budgetMin, Number(form.budgetMax) || budgetMin);
+    const campusLabel = form.campus || campus || "Campus";
 
     setSubmitting(true);
     try {
@@ -69,7 +72,7 @@ export function RequestItemModal({ open, onClose }: { open: boolean; onClose: ()
           form.urgency === "Urgent"
             ? form.urgency
             : "Medium",
-        campus: form.campus || "Campus",
+        campus: campusLabel,
         department: form.department || "General",
         studentName: user.displayName ?? user.email?.split("@")[0] ?? "Student",
         studentAvatar: user.photoURL ?? undefined,
@@ -270,7 +273,7 @@ export function RequestItemModal({ open, onClose }: { open: boolean; onClose: ()
                     onChange={(e) => updateField("campus", e.target.value)}
                     className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary"
                   >
-                    <option value="">Select campus...</option>
+                    <option value="">{campus ? `Use current campus (${campus})` : "Select campus..."}</option>
                     {CAMPUSES.map((c) => (
                       <option key={c} value={c}>
                         {c}

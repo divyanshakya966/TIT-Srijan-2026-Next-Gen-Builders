@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type User } from "firebase/auth";
 
 import { useAuth } from "@/lib/auth";
+import { asHttpError, HttpError, isAuthHttpStatus } from "@/lib/http-error";
 
 export type UserProfile = {
   firebaseUid: string;
@@ -19,6 +20,14 @@ type UserProfileResponse = {
   ok: boolean;
   user: UserProfile;
 };
+
+export function shouldFallbackToFirebaseProfile(error: unknown): boolean {
+  const httpError = asHttpError(error);
+  if (!httpError) {
+    return true;
+  }
+  return !isAuthHttpStatus(httpError.status);
+}
 
 export function buildFallbackUserProfile(user: User): UserProfile {
   return {
@@ -43,7 +52,10 @@ export async function fetchCurrentUserProfile(user: User): Promise<UserProfile> 
 
   if (!response.ok) {
     const message = await response.text().catch(() => "");
-    throw new Error(message || `Failed to load user profile (${response.status}).`);
+    throw new HttpError(
+      response.status,
+      message || `Failed to load user profile (${response.status}).`,
+    );
   }
 
   const payload = (await response.json()) as UserProfileResponse;
@@ -56,7 +68,7 @@ export async function fetchCurrentUserProfile(user: User): Promise<UserProfile> 
 }
 
 export function useCurrentUserProfile() {
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
 
   return useQuery({
     queryKey: ["current-user-profile", user?.uid],
@@ -68,8 +80,16 @@ export function useCurrentUserProfile() {
 
       try {
         return await fetchCurrentUserProfile(user);
-      } catch {
-        return buildFallbackUserProfile(user);
+      } catch (error) {
+        const httpError = asHttpError(error);
+        if (httpError && isAuthHttpStatus(httpError.status)) {
+          await signOut();
+          return null;
+        }
+        if (shouldFallbackToFirebaseProfile(error)) {
+          return buildFallbackUserProfile(user);
+        }
+        return null;
       }
     },
     staleTime: 60_000,

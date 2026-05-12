@@ -6,16 +6,38 @@ import { subscribeItemRequestsFromFirestore } from "@/lib/firestore-item-request
 export type ItemRequestsContextValue = {
   requests: ItemRequest[];
   liveFromFirestore: number;
+  loading: boolean;
+  error: Error | null;
 };
 
 const ItemRequestsContext = React.createContext<ItemRequestsContextValue | null>(null);
 
 export function ItemRequestsProvider({ children }: { children: React.ReactNode }) {
   const [live, setLive] = React.useState<ItemRequest[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<Error | null>(null);
 
   React.useEffect(() => {
-    if (typeof window === "undefined" || !isFirebaseConfigured) return undefined;
-    return subscribeItemRequestsFromFirestore(setLive);
+    if (typeof window === "undefined" || !isFirebaseConfigured) {
+      setLoading(false);
+      setError(null);
+      return undefined;
+    }
+
+    setLoading(true);
+    setError(null);
+    return subscribeItemRequestsFromFirestore(
+      (rows) => {
+        setLive(rows);
+        setLoading(false);
+        setError(null);
+      },
+      (err) => {
+        setLive([]);
+        setLoading(false);
+        setError(err);
+      },
+    );
   }, []);
 
   const requests = React.useMemo(() => {
@@ -25,8 +47,8 @@ export function ItemRequestsProvider({ children }: { children: React.ReactNode }
   }, [live]);
 
   const value = React.useMemo<ItemRequestsContextValue>(
-    () => ({ requests, liveFromFirestore: live.length }),
-    [requests, live.length],
+    () => ({ requests, liveFromFirestore: live.length, loading, error }),
+    [requests, live.length, loading, error],
   );
 
   return <ItemRequestsContext.Provider value={value}>{children}</ItemRequestsContext.Provider>;

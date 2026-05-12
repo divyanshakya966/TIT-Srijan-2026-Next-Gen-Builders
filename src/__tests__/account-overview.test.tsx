@@ -15,9 +15,9 @@ describe("AccountOverview", () => {
     render(<AccountOverview profile={profile} />);
 
     expect(screen.getByText(/Account overview/i)).toBeTruthy();
-    expect(screen.getByTestId("account-Email")).toHaveTextContent(profile.email);
+    expect(screen.getByTestId("account-Email").textContent).toContain(profile.email);
     // ensure the email container uses break-words to avoid overflow
-    expect(screen.getByTestId("account-Email")).toHaveClass("break-words");
+    expect(screen.getByTestId("account-Email").className).toContain("break-words");
   });
 });
 

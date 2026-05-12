@@ -23,7 +23,7 @@ export const Route = createFileRoute("/marketplace")({
 
 function MarketplacePage() {
   const search = Route.useSearch();
-  const { products } = useCatalog();
+  const { products, loading, firestoreError } = useCatalog();
   const categories = useMemo(() => categorySummaries(products), [products]);
 
   const [query, setQuery] = useState("");
@@ -451,7 +451,27 @@ function MarketplacePage() {
               )}
             </div>
 
-            {filtered.length === 0 ? (
+            {firestoreError && (
+              <div className="mb-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+                <p className="text-sm font-medium text-destructive">
+                  Firestore connection issue
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Showing cached listings only. Live updates unavailable.
+                </p>
+              </div>
+            )}
+
+            {loading && filtered.length === 0 ? (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+                {[...Array(8)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-48 rounded-2xl border border-border bg-secondary/30 animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
               <EmptyState />
             ) : (
               <motion.div

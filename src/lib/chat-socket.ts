@@ -1,4 +1,7 @@
 import { io, type Socket } from "socket.io-client";
+import * as React from "react";
+
+export type ChatConnectionState = "disconnected" | "connecting" | "connected" | "error";
 
 export type ChatThread = {
   id: string;
@@ -88,9 +91,29 @@ export type ChatSocketClientEvents = {
 };
 
 let socket: Socket<ChatSocketEvents, ChatSocketClientEvents> | null = null;
+let connectionState: ChatConnectionState = "disconnected";
+let connectionStateListeners: Set<(state: ChatConnectionState) => void> = new Set();
 
 function getChatSocketUrl() {
   return import.meta.env.VITE_CHAT_SOCKET_URL ?? "http://localhost:3001";
+}
+
+export function setConnectionState(state: ChatConnectionState) {
+  if (connectionState !== state) {
+    connectionState = state;
+    connectionStateListeners.forEach((listener) => listener(state));
+  }
+}
+
+export function getConnectionState(): ChatConnectionState {
+  return connectionState;
+}
+
+export function onConnectionStateChange(listener: (state: ChatConnectionState) => void): () => void {
+  connectionStateListeners.add(listener);
+  return () => {
+    connectionStateListeners.delete(listener);
+  };
 }
 
 export function getChatSocket() {
@@ -98,8 +121,49 @@ export function getChatSocket() {
     socket = io(getChatSocketUrl(), {
       autoConnect: false,
       transports: ["websocket"],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 10,
+      timeout: 10000,
+    });
+
+    // Connection lifecycle handlers
+    socket.on("connect", () => {
+      setConnectionState("connected");
+    });
+
+    socket.on("disconnect", () => {
+      setConnectionState("disconnected");
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+      setConnectionState("error");
     });
   }
 
   return socket;
+}
+
+/**
+ * React hook to track socket connection state
+ */
+export function useSocketStatus() {
+  const [state, setState] = React.useState<ChatConnectionState>(getConnectionState());
+
+  React.useEffect(() => {
+    const unsubscribe = onConnectionStateChange((newState) => {
+      setState(newState);
+    });
+    return unsubscribe;
+  }, []);
+
+  return {
+    connected: state === "connected",
+    connecting: state === "connecting",
+    disconnected: state === "disconnected",
+    error: state === "error",
+    state,
+  };
 }

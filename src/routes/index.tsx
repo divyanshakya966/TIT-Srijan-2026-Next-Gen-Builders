@@ -307,7 +307,7 @@ function Featured() {
 }
 
 function RequestedByStudents() {
-  const { requests } = useCampusItemRequests();
+  const { requests, loading, error } = useCampusItemRequests();
   const [provideFor, setProvideFor] = useState<ItemRequest | null>(null);
   return (
     <section className="relative py-20 overflow-hidden">
@@ -329,6 +329,18 @@ function RequestedByStudents() {
             </p>
           </div>
         </div>
+        {error ? (
+          <div className="mb-5 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+            Item requests are temporarily unavailable. Showing cached listings only.
+          </div>
+        ) : null}
+        {loading && requests.length === 0 ? (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-56 animate-pulse rounded-2xl border border-border bg-card" />
+            ))}
+          </div>
+        ) : null}
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {requests.map((req, i) => (
             <RequestCard
@@ -452,7 +464,10 @@ function ProvideModal({ request, onClose }: { request: ItemRequest | null; onClo
     });
     setMessage("");
     onClose();
-    void navigate({ to: "/chat" });
+    void navigate({
+      to: "/chat",
+      search: { peerUid: undefined, peerName: undefined, peerAvatar: undefined },
+    });
   };
 
   return (
